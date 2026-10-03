@@ -33,16 +33,21 @@ Base.metadata.create_all(bind=engine)
 # ---------------------------------------------------------
 
 # Allow the frontend to communicate with the FastAPI backend.
-# Next.js frontend runs on port 3000.
-# Port 5173 is also allowed for local React/Vite development.
+# Local development and the deployed Vercel frontend are allowed.
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Local Next.js development
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+
+        # Local React/Vite development
         "http://localhost:5173",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+
+        # Production Vercel frontend
+        "https://agentic-ai-business-research.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
