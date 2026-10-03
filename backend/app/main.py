@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import router
+from app.database import Base, engine
+from app import models
 
 
 # ---------------------------------------------------------
@@ -13,6 +15,17 @@ app = FastAPI(
     description="Backend API for AI-powered business research and analysis",
     version="1.0.0"
 )
+
+
+# ---------------------------------------------------------
+# DATABASE TABLE CREATION
+# ---------------------------------------------------------
+
+# Create all SQLAlchemy tables if they do not already exist.
+# This is useful when deploying the application with a new
+# PostgreSQL database on Render.
+
+Base.metadata.create_all(bind=engine)
 
 
 # ---------------------------------------------------------
