@@ -564,12 +564,12 @@ function Topbar({
           <Menu size={20} />
         </button>
 
-        <div>
+        <div className="constant-brand-bar">
           <span className="eyebrow">
-            Workspace / {title}
+            Dashboard
           </span>
 
-          <h1>{title}</h1>
+          <h1>AI-powered business research.</h1>
         </div>
 
       </div>
