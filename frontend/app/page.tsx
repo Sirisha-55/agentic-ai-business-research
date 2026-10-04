@@ -552,9 +552,55 @@ function Topbar({
   onMenu: () => void
 }) {
   return (
-    <header className="topbar">
+    <>
+      <style jsx global>{`
+        /* Only the small Dashboard branding bar stays fixed. */
+        .topbar {
+          position: fixed !important;
+          top: 0 !important;
+          right: 0 !important;
+          left: 246px !important;
+          z-index: 100 !important;
+          height: 82px !important;
+          background: color-mix(in srgb, var(--background) 96%, transparent) !important;
+          backdrop-filter: blur(12px);
+        }
 
-      <div className="topbar-title">
+        .sidebar.collapsed ~ .main-shell .topbar {
+          left: 75px !important;
+        }
+
+        @media (max-width: 900px) {
+          .topbar {
+            left: 0 !important;
+          }
+        }
+
+        .constant-brand-bar h1 {
+          font-size: 18px;
+          font-weight: 600;
+          letter-spacing: -.4px;
+        }
+
+        .constant-brand-bar .eyebrow {
+          display: block;
+          font-size: 9px;
+          margin-bottom: 2px;
+          color: var(--muted-foreground);
+        }
+
+        /* The large AI-powered business research hero is normal content,
+           so it scrolls underneath the fixed Dashboard bar. */
+        .content {
+          position: relative;
+          z-index: 1;
+          overflow: visible;
+        }
+      `}</style>
+
+      <header className="topbar">
+
+        <div className="topbar-title">
 
         <button
           className="icon-btn mobile-menu"
@@ -584,7 +630,8 @@ function Topbar({
 
       </div>
 
-    </header>
+      </header>
+    </>
   )
 }
 
@@ -1427,7 +1474,12 @@ export default function Page() {
           }
         />
 
-        <main className="content">
+        <main
+          className="content"
+          style={{
+            paddingTop: 82,
+          }}
+        >
           {renderView()}
         </main>
 
