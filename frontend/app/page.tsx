@@ -368,6 +368,8 @@ function Sidebar({
   setCollapsed,
   mobileOpen,
   setMobileOpen,
+  onBack,
+  canGoBack,
 }: {
   view: View
   setView: (v: View) => void
@@ -375,6 +377,8 @@ function Sidebar({
   setCollapsed: (v: boolean) => void
   mobileOpen: boolean
   setMobileOpen: (v: boolean) => void
+  onBack: () => void
+  canGoBack: boolean
 }) {
   return (
     <aside
@@ -394,7 +398,7 @@ function Sidebar({
             align-self: flex-start !important;
             height: 100vh !important;
             max-height: 100vh !important;
-            overflow-y: auto;
+            overflow: visible;
             display: flex;
             flex-direction: column;
           }
@@ -430,34 +434,15 @@ function Sidebar({
 
       <button
         type="button"
-        className="sidebar-back-btn"
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: 8,
-          padding: '9px 10px',
-          marginBottom: 12,
-          border: '1px solid rgba(127, 127, 127, 0.20)',
-          borderRadius: 10,
-          background: 'transparent',
-          color: 'inherit',
-          cursor: 'pointer',
-          fontSize: 12,
-          fontWeight: 600,
-          textAlign: 'left',
-        }}
-        onClick={() => {
-          setView('dashboard')
-          setMobileOpen(false)
-        }}
-        title="Back to dashboard"
-        aria-label="Back to dashboard"
+        className="sidebar-edge-back"
+        onClick={onBack}
+        disabled={!canGoBack}
+        title="Back"
+        aria-label="Go back to previous screen"
       >
-        <ArrowLeft size={16} />
-        {!collapsed && <span>Back</span>}
+        <ArrowLeft size={14} />
       </button>
+
 
       <div className="workspace-pill">
 
@@ -548,12 +533,16 @@ function Topbar({
   setTheme,
   onMenu,
   onHome,
+  onBack,
+  canGoBack,
 }: {
   title: string
   theme: Theme
   setTheme: (value: Theme) => void
   onMenu: () => void
   onHome: () => void
+  onBack: () => void
+  canGoBack: boolean
 }) {
   return (
     <header className="topbar">
@@ -578,6 +567,15 @@ function Topbar({
           aria-label="Open navigation"
         >
           <Menu size={20} />
+        </button>
+
+        <button
+          className="icon-btn topbar-back"
+          onClick={onBack}
+          disabled={!canGoBack}
+          aria-label="Go back"
+        >
+          <ArrowLeft size={18} />
         </button>
 
         <div>
@@ -615,7 +613,7 @@ function Topbar({
                   color: '#a79dff',
                 }}
               >
-                business research.
+                Business Research<span className="brand-dot">.</span>
               </em>
             </button>
           </h1>
@@ -995,8 +993,32 @@ export default function Page() {
   const [theme, setThemeState] =
     useState<Theme>('dark')
 
-  const [view, setView] =
+  const [view, setViewState] =
     useState<View>('dashboard')
+
+  // Screen history so Back steps D -> C -> B -> A.
+  // Refs are used because startResearch runs async and would
+  // otherwise read a stale `view`.
+  const viewRef = useRef<View>('dashboard')
+  const stackRef = useRef<View[]>([])
+  const [canGoBack, setCanGoBack] = useState(false)
+
+  const setView = (next: View) => {
+    const current = viewRef.current
+    if (next === current) return
+    stackRef.current = [...stackRef.current.slice(-29), current]
+    viewRef.current = next
+    setViewState(next)
+    setCanGoBack(true)
+  }
+
+  const goBack = () => {
+    const previous = stackRef.current.pop()
+    if (!previous) return
+    viewRef.current = previous
+    setViewState(previous)
+    setCanGoBack(stackRef.current.length > 0)
+  }
 
   const [collapsed, setCollapsed] =
     useState(false)
@@ -1614,6 +1636,122 @@ export default function Page() {
   return (
     <div className="app-shell">
 
+      <style jsx global>{`
+        :root {
+          --accent-red: #b83a3a;
+          --topbar-bg: rgba(10, 14, 23, 0.9);
+        }
+        html.dark { --accent-red: #e0625f; }
+        html.light { --topbar-bg: rgba(223, 230, 242, 0.92); --accent-red: #b83a3a; }
+
+        /* small red accents */
+        .brand-dot { color: var(--accent-red); }
+        .section-kicker .kicker-line { background: var(--accent-red) !important; }
+        .main-nav button.active { position: relative; }
+        .main-nav button.active::before {
+          content: ''; position: absolute; left: 0; top: 9px; bottom: 9px;
+          width: 3px; border-radius: 3px; background: var(--accent-red);
+        }
+        .report-nav a.active { box-shadow: inset 2px 0 0 var(--accent-red); }
+        .status-running .status-dot { background: var(--accent-red) !important; }
+        .char-count.near-limit { color: var(--accent-red) !important; }
+
+        /* fixed top bar */
+        .app-shell, .main-shell { overflow-x: clip; }
+        .main-shell { min-width: 0; }
+        .topbar {
+          position: sticky; top: 0; z-index: 40;
+          background: var(--topbar-bg);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* back button attached to the sidebar edge */
+        .sidebar-edge-back, .topbar .topbar-back { display: none; }
+        @media (min-width: 1100px) {
+          .app-shell aside.sidebar { z-index: 45; }
+          .sidebar-edge-back {
+            display: grid; place-items: center; position: absolute;
+            top: 72px; right: -14px; width: 28px; height: 28px; padding: 0;
+            border-radius: 50%; cursor: pointer; z-index: 60;
+            border: 1px solid rgba(127, 127, 127, 0.4);
+            background: #1b2333; color: #dfe5f3;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            transition: color 0.2s, border-color 0.2s, transform 0.2s;
+          }
+          .sidebar-edge-back:hover:not(:disabled) {
+            color: var(--accent-red); border-color: var(--accent-red); transform: scale(1.08);
+          }
+          .sidebar-edge-back:disabled { opacity: 0.35; cursor: default; }
+        }
+        @media (max-width: 1099px) {
+          .topbar .topbar-back { display: inline-grid; }
+          .topbar .topbar-back:disabled { opacity: 0.35; }
+        }
+
+        /* dividers only between report sections */
+        .report-content section { border-top: 0 !important; }
+        .report-content .markdown-content > section + section {
+          border-top: 1px solid rgba(127, 127, 127, 0.3) !important;
+          margin-top: 36px; padding-top: 32px;
+        }
+        .report-content .report-section-body > *,
+        .report-content .report-markdown-block,
+        .report-content .report-markdown-block p,
+        .report-content .report-markdown-block li {
+          border-top: 0 !important; border-bottom: 0 !important; box-shadow: none !important;
+        }
+
+        /* more room above the pipeline diagram */
+        .pipeline-section { margin-top: 56px !important; }
+        .pl-flow { padding-top: 20px; }
+
+        /* darker, higher-contrast light theme */
+        html.light body, html.light .app-shell { background: #dfe6f2 !important; color: #0e1a33; }
+        html.light .sidebar {
+          background: #13213f !important; border-color: #0c1830 !important; color: #e6ecf8;
+        }
+        html.light .sidebar .main-nav button,
+        html.light .sidebar .collapse-btn { color: #c3cde4; }
+        html.light .sidebar .main-nav button:hover { background: rgba(255, 255, 255, 0.07); }
+        html.light .sidebar .main-nav button.active { background: rgba(255, 255, 255, 0.13); color: #fff; }
+        html.light .sidebar small { color: #9fb0d3; }
+        html.light .stat-card, html.light .agent-card, html.light .query-card,
+        html.light .table-card, html.light .research-row, html.light .report-tile,
+        html.light .aside-card, html.light .insight-card, html.light .workspace-node,
+        html.light .example-card, html.light .workspace-query-card,
+        html.light .workspace-banner, html.light .research-progress,
+        html.light .stack-node, html.light .arch-node, html.light .empty-state {
+          background: #f1f5fc !important; border: 1px solid #bcc8df !important;
+          color: #0e1a33; box-shadow: 0 1px 2px rgba(19, 33, 63, 0.08);
+        }
+        html.light .content p { color: #34435f; }
+        html.light .topbar-brand em, html.light .ar-toggle, html.light .ar-chip { color: #5b4bd6 !important; }
+
+        /* responsive */
+        .hero-actions { flex-wrap: wrap; }
+        @media (max-width: 1100px) {
+          .split-sections, .workspace-grid { grid-template-columns: 1fr !important; }
+          .hero { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 760px) {
+          .hero-visual { display: none !important; }
+          .content { padding-left: 14px !important; padding-right: 14px !important; }
+          .topbar { padding-left: 12px !important; padding-right: 12px !important; }
+          .topbar-brand { white-space: normal !important; }
+          .page-intro, .section-heading, .query-footer, .report-toolbar {
+            flex-direction: column; align-items: flex-start; gap: 12px;
+          }
+          .query-footer .primary-btn { width: 100%; justify-content: center; }
+          .example-grid, .report-grid { grid-template-columns: 1fr !important; }
+          .history-table { overflow-x: auto; }
+          .history-header, .history-row { min-width: 640px; }
+          .hero h2 { font-size: clamp(28px, 9vw, 40px) !important; }
+          .ar-chain { width: 100%; }
+        }
+      `}</style>
+
+
       <Sidebar
         view={view}
         setView={setView}
@@ -1621,6 +1759,8 @@ export default function Page() {
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        onBack={goBack}
+        canGoBack={canGoBack}
       />
 
       <div className="main-shell">
@@ -1632,6 +1772,8 @@ export default function Page() {
           onMenu={() =>
             setMobileOpen(true)
           }
+          onBack={goBack}
+          canGoBack={canGoBack}
           onHome={() => {
             setView('dashboard')
             setMobileOpen(false)
@@ -1693,7 +1835,7 @@ function Dashboard({
           <h2>
             AI-powered
             <br />
-            <em>business research.</em>
+            <em>Business Research<span className="brand-dot">.</span></em>
           </h2>
 
           <p>
@@ -1712,9 +1854,6 @@ function Dashboard({
             >
               <Plus size={17} />
               Start new research
-              <span className="button-shortcut">
-                ⌘ ↵
-              </span>
             </button>
 
             <button
@@ -3833,7 +3972,29 @@ function getReportContent(report: Report) {
 // REPORT MARKDOWN NORMALIZATION + RENDERING
 // ---------------------------------------------------------
 
+// Rupee amounts: Rs 1200000 / INR 12,00,000 / Rs. 5000 -> ₹12,00,000 (Indian grouping).
+// $, EUR and GBP amounts are intentionally left untouched.
+function groupIndian(num: string) {
+  const [int, dec] = num.replace(/,/g, '').split('.')
+  let out = int
+  if (int.length > 3) {
+    out = int.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + int.slice(-3)
+  }
+  return dec !== undefined ? `${out}.${dec}` : out
+}
+
+function formatRupeeAmounts(text: string) {
+  return text.replace(
+    /(?:₹|\bRs\.?|\bINR)\s*(\d+(?:,\d+)*(?:\.\d+)?)/g,
+    (_m, num: string) => `₹${groupIndian(num)}`
+  )
+}
+
 function normalizeReportContent(content: string) {
+  return formatRupeeAmounts(normalizeReportEscapes(content))
+}
+
+function normalizeReportEscapes(content: string) {
   return content
     .replace(/\\u2014/g, String.fromCharCode(0x2014))
     .replace(/\\u2013/g, String.fromCharCode(0x2013))
