@@ -1020,6 +1020,21 @@ export default function Page() {
     setCanGoBack(stackRef.current.length > 0)
   }
 
+  useEffect(() => {
+    const update = () => {
+      const bar = document.querySelector<HTMLElement>('.topbar')
+      if (bar) {
+        document.documentElement.style.setProperty(
+          '--topbar-h',
+          `${bar.offsetHeight}px`
+        )
+      }
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
   const [collapsed, setCollapsed] =
     useState(false)
 
@@ -1748,6 +1763,68 @@ export default function Page() {
           .history-header, .history-row { min-width: 640px; }
           .hero h2 { font-size: clamp(28px, 9vw, 40px) !important; }
           .ar-chain { width: 100%; }
+        }
+
+        /* ---- light-mode contrast + more red ---- */
+        html.light .content h1, html.light .content h2, html.light .content h3,
+        html.light .content h4 { color: #0b1630 !important; }
+        html.light .content h2 em { color: #4b3bc4 !important; }
+        html.light .content strong { color: #0e1a33; }
+        html.light .content small,
+        html.light .row-main span { color: #44526d !important; }
+        html.light .hero {
+          background: #f1f5fc !important; border: 1px solid #bcc8df !important;
+        }
+        html.light .accent-eyebrow, html.light .section-kicker,
+        html.light .accent-eyebrow svg { color: var(--accent-red) !important; }
+        html.light .text-btn, html.light .report-tile-link { color: var(--accent-red) !important; }
+        html.light .network-stat strong { color: var(--accent-red) !important; }
+        .outline-btn:hover, .example-card:hover, .research-row:hover, .report-tile:hover {
+          border-color: var(--accent-red) !important;
+        }
+        .research-row:hover .row-icon, .report-tile:hover .row-icon { color: var(--accent-red); }
+        .report-content h3 {
+          border-left: 3px solid var(--accent-red); padding-left: 12px;
+        }
+        .status { text-transform: capitalize; }
+
+        /* ---- report text: darker grey, still grey ---- */
+        html.light .report-section-body, html.light .report-section-body p,
+        html.light .report-section-body li, html.light .report-section-body td,
+        html.light .report-section-body blockquote {
+          color: #3f4a5f !important; opacity: 1 !important;
+        }
+        html.light .report-section-body strong { color: #1b2640 !important; }
+        html.light .report-section-body * { opacity: 1 !important; }
+
+        /* ---- one scrollbar: the page scrolls, not the report box ---- */
+        .report-viewer {
+          height: auto !important; min-height: 0 !important;
+          overflow: visible !important; overscroll-behavior: auto;
+        }
+        .report-layout { min-height: 0 !important; }
+        .report-nav {
+          top: calc(var(--topbar-h, 92px) + 64px) !important;
+          max-height: calc(100vh - var(--topbar-h, 92px) - 88px) !important;
+        }
+        .report-content section {
+          scroll-margin-top: calc(var(--topbar-h, 92px) + 72px) !important;
+        }
+
+        /* download / print stay put, just under the top bar */
+        .report-toolbar {
+          position: sticky; top: var(--topbar-h, 92px); z-index: 30;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; padding: 8px 0; margin-bottom: 8px;
+          background: var(--topbar-bg);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .report-toolbar .toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
+        @media (max-width: 900px) {
+          .report-nav { top: calc(var(--topbar-h, 92px) + 56px) !important; max-height: none !important; }
+        }
+        @media (max-width: 760px) {
+          .report-toolbar { flex-direction: row !important; align-items: center !important; }
         }
       `}</style>
 
@@ -4130,6 +4207,7 @@ function MarkdownBlock({ text }: { text: string }) {
   const html = lines
     .map(line => line.trim())
     .filter(Boolean)
+    .filter(line => !/^(-{3,}|\*{3,}|_{3,})$/.test(line))
     .map(line => {
       if (/^[-*+]\s+/.test(line)) {
         return `<li>${inlineMarkdown(line.replace(/^[-*+]\s+/, ''))}</li>`
