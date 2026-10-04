@@ -29,8 +29,17 @@ def market_agent(task: str) -> list[dict]:
     - important statistics and numbers
     - opportunities and risks
 
+    IMPORTANT CURRENCY INSTRUCTION:
+    - Use Indian Rupees (INR / ₹) for ALL monetary values.
+    - Do NOT use US Dollars ($ / USD) in the final research output.
+    - If a source gives a value in USD, EUR, GBP, or another currency,
+      convert it to Indian Rupees (INR / ₹) when presenting the information.
+    - Clearly write monetary values using ₹ or INR.
+    - Prefer sources that provide Indian market values in INR when available.
+
     Focus on the specific market, country, company, or industry
     mentioned in the task.
+
     Avoid generic explanations of what market research means.
     """
 
