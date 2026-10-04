@@ -1479,6 +1479,7 @@ function Dashboard({
             Intelligence workspace
           </span>
 
+          {/* Constant product branding — independent of the current page title. */}
           <h2>
             AI-powered
             <br />
