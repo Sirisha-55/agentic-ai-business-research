@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import {
   Activity,
@@ -89,7 +89,7 @@ const API_BASE =
 
 
 // ---------------------------------------------------------
-// REPORT DATE / TIME FORMATTER
+// REPORT DATE FORMATTER
 // ---------------------------------------------------------
 
 function formatReportDate(dateString?: string): string {
@@ -97,30 +97,21 @@ function formatReportDate(dateString?: string): string {
     return 'Date unavailable'
   }
 
-  // The backend stores the database timestamp without timezone information.
-  // Render runs in UTC, so explicitly treat the received timestamp as UTC.
-  const normalized = dateString.includes('T')
-    ? dateString
-    : dateString.replace(' ', 'T')
+  // The report timestamp is only used to show the calendar date.
+  // We intentionally do not display the time because the backend
+  // timestamp timezone can differ between local and deployed servers.
+  const datePart = dateString.slice(0, 10)
 
-  const utcDate = new Date(
-    normalized.endsWith('Z')
-      ? normalized
-      : `${normalized}Z`
-  )
+  const [year, month, day] = datePart.split('-').map(Number)
 
-  if (Number.isNaN(utcDate.getTime())) {
+  if (!year || !month || !day) {
     return 'Date unavailable'
   }
 
-  // The browser automatically converts UTC to the user's local timezone.
-  return utcDate.toLocaleString('en-IN', {
+  return new Date(year, month - 1, day).toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
   })
 }
 
@@ -2776,16 +2767,11 @@ function parseReportSections(content: string) {
       .toLowerCase()
 
   const isKnownSection = (title: string) => {
-    const normalized = normalize(title)
-
-    return REPORT_SECTIONS.some(section => {
-      const sectionName = normalize(section.label)
-      return (
-        normalized === sectionName ||
-        normalized.includes(sectionName) ||
-        sectionName.includes(normalized)
-      )
-    })
+    // Use the same alias-aware key mapping as the renderer.
+    // This allows headings such as "Executive Brief",
+    // "Competitive Comparison", and "Risks and Recent Developments"
+    // to connect to the matching sidebar item.
+    return Boolean(getSectionKey(title))
   }
 
   for (const line of lines) {
@@ -2848,36 +2834,73 @@ function getSectionKey(title: string) {
   const normalized =
     title
       .replace(/[*_`]/g, '')
+      .replace(/^\s*\d{1,2}[.)\-:]\s*/, '')
       .toLowerCase()
       .replace(/[^a-z0-9 ]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
 
-  if (normalized.includes('executive') || normalized === 'summary') {
+  // Executive section aliases used by the writer agent.
+  if (
+    normalized.includes('executive') ||
+    normalized === 'summary' ||
+    normalized.includes('executive brief')
+  ) {
     return 'executive-summary'
   }
 
-  if (normalized.includes('market')) {
+  // Market section aliases.
+  if (
+    normalized === 'market overview' ||
+    normalized.includes('market size') ||
+    normalized.includes('market trend') ||
+    normalized.includes('market driver') ||
+    normalized.includes('customer demand')
+  ) {
     return 'market-overview'
   }
 
-  if (normalized.includes('company')) {
+  // Company section aliases.
+  if (
+    normalized.includes('company') ||
+    normalized.includes('company and competitive landscape')
+  ) {
     return 'company-analysis'
   }
 
-  if (normalized.includes('competitor')) {
+  // Competitor section aliases. "Competitive" is intentionally included
+  // because reports often use "Competitive Comparison" rather than
+  // the exact phrase "Competitor Analysis".
+  if (
+    normalized.includes('competitor') ||
+    normalized.includes('competitive comparison') ||
+    normalized.includes('competitive landscape')
+  ) {
     return 'competitor-analysis'
   }
 
-  if (normalized.includes('opportun')) {
+  // Opportunity aliases.
+  if (
+    normalized.includes('opportun') ||
+    normalized.includes('market gap') ||
+    normalized.includes('white space')
+  ) {
     return 'opportunities'
   }
 
-  if (normalized.includes('challenge')) {
+  // Challenge/risk aliases.
+  if (
+    normalized.includes('challenge') ||
+    normalized.includes('risk') ||
+    normalized.includes('recent development')
+  ) {
     return 'challenges'
   }
 
-  if (normalized.includes('insight')) {
+  if (
+    normalized.includes('insight') ||
+    normalized.includes('key takeaway')
+  ) {
     return 'key-insights'
   }
 
@@ -2885,7 +2908,7 @@ function getSectionKey(title: string) {
     return 'conclusion'
   }
 
-  if (normalized.includes('source')) {
+  if (normalized.includes('source') || normalized.includes('references')) {
     return 'sources'
   }
 
@@ -3084,6 +3107,8 @@ function ReportViewer({
   onDelete: (id: string) => void
 }) {
 
+  const reportViewerRef = useRef<HTMLDivElement | null>(null)
+
   const content = normalizeReportContent(getReportContent(report))
 
   const parsedSections =
@@ -3118,6 +3143,93 @@ function ReportViewer({
   return (
     <>
       <style jsx global>{`
+        /* -------------------------------------------------------
+           REPORT VIEWER SCROLLING
+           ------------------------------------------------------- */
+
+        /* The report itself owns the vertical scroll. This keeps the
+           report navigation visible while the full report is read. */
+        .report-viewer {
+          height: calc(100vh - 72px);
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scroll-behavior: smooth;
+          overscroll-behavior: contain;
+          scroll-padding-top: 24px;
+        }
+
+        .report-layout {
+          display: grid;
+          grid-template-columns: 230px minmax(0, 1fr);
+          gap: 42px;
+          align-items: start;
+          width: 100%;
+          min-height: calc(100vh - 80px);
+        }
+
+        .report-nav {
+          position: sticky;
+          top: 24px;
+          align-self: start;
+          max-height: calc(100vh - 48px);
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding-right: 8px;
+          scrollbar-width: thin;
+        }
+
+        .report-nav a {
+          display: block;
+          cursor: pointer;
+        }
+
+        .report-nav a.disabled {
+          cursor: default;
+          opacity: 0.55;
+        }
+
+        .report-content {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .markdown-content {
+          min-width: 0;
+        }
+
+        .report-content section {
+          scroll-margin-top: 24px;
+        }
+
+        @media (max-width: 900px) {
+          .report-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+
+          .report-nav {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: hidden;
+            display: flex;
+            gap: 18px;
+            padding: 12px 0;
+            white-space: nowrap;
+          }
+
+          .report-nav .section-kicker {
+            flex: 0 0 auto;
+          }
+
+          .report-nav a {
+            flex: 0 0 auto;
+          }
+        }
+
         .report-markdown-block p {
           margin: 0 0 14px;
           line-height: 1.75;
@@ -3278,7 +3390,7 @@ function ReportViewer({
         }
       `}</style>
 
-      <div className="report-viewer view-enter">
+      <div ref={reportViewerRef} className="report-viewer view-enter">
 
       <div className="report-toolbar">
 
@@ -3375,20 +3487,29 @@ function ReportViewer({
                       : 'disabled'
                   }
                   onClick={event => {
+                    event.preventDefault()
 
                     if (!hasContent) {
-                      event.preventDefault()
                       return
                     }
 
-                    event.preventDefault()
+                    const viewer = reportViewerRef.current
+                    const target = viewer?.querySelector<HTMLElement>(
+                      `#${section.key}`
+                    )
 
-                    document
-                      .getElementById(section.key)
-                      ?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start',
-                      })
+                    if (!target) {
+                      return
+                    }
+
+                    // Scroll the actual section into view. This is more
+                    // reliable than calculating scrollTop manually and
+                    // works with the report container and normal page flow.
+                    target.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                      inline: 'nearest',
+                    })
                   }}
                 >
                   {String(index + 1).padStart(2, '0')}{' '}
@@ -3443,7 +3564,7 @@ function ReportViewer({
                   key={section.key}
                   id={section.key}
                   style={{
-                    scrollMarginTop: '100px',
+                    scrollMarginTop: '24px',
                   }}
                 >
 
