@@ -552,55 +552,9 @@ function Topbar({
   onMenu: () => void
 }) {
   return (
-    <>
-      <style jsx global>{`
-        /* Only the small Dashboard branding bar stays fixed. */
-        .topbar {
-          position: fixed !important;
-          top: 0 !important;
-          right: 0 !important;
-          left: 246px !important;
-          z-index: 100 !important;
-          height: 82px !important;
-          background: color-mix(in srgb, var(--background) 96%, transparent) !important;
-          backdrop-filter: blur(12px);
-        }
+    <header className="topbar">
 
-        .sidebar.collapsed ~ .main-shell .topbar {
-          left: 75px !important;
-        }
-
-        @media (max-width: 900px) {
-          .topbar {
-            left: 0 !important;
-          }
-        }
-
-        .constant-brand-bar h1 {
-          font-size: 18px;
-          font-weight: 600;
-          letter-spacing: -.4px;
-        }
-
-        .constant-brand-bar .eyebrow {
-          display: block;
-          font-size: 9px;
-          margin-bottom: 2px;
-          color: var(--muted-foreground);
-        }
-
-        /* The large AI-powered business research hero is normal content,
-           so it scrolls underneath the fixed Dashboard bar. */
-        .content {
-          position: relative;
-          z-index: 1;
-          overflow: visible;
-        }
-      `}</style>
-
-      <header className="topbar">
-
-        <div className="topbar-title">
+      <div className="topbar-title">
 
         <button
           className="icon-btn mobile-menu"
@@ -610,12 +564,12 @@ function Topbar({
           <Menu size={20} />
         </button>
 
-        <div className="constant-brand-bar">
+        <div>
           <span className="eyebrow">
-            Dashboard
+            Workspace / {title}
           </span>
 
-          <h1>AI-powered business research.</h1>
+          <h1>{title}</h1>
         </div>
 
       </div>
@@ -630,8 +584,7 @@ function Topbar({
 
       </div>
 
-      </header>
-    </>
+    </header>
   )
 }
 
@@ -1474,12 +1427,7 @@ export default function Page() {
           }
         />
 
-        <main
-          className="content"
-          style={{
-            paddingTop: 82,
-          }}
-        >
+        <main className="content">
           {renderView()}
         </main>
 
