@@ -595,11 +595,6 @@ function StatCard({
 
       </div>
 
-      <ArrowUpRight
-        className="stat-arrow"
-        size={17}
-      />
-
     </div>
   )
 }
@@ -2735,15 +2730,6 @@ function Reports({
 
           </div>
 
-          <button
-            className="primary-btn"
-            onClick={() =>
-              setSelectedReport(null)
-            }
-          >
-            <Plus size={16} />
-            New report
-          </button>
 
         </div>
 
