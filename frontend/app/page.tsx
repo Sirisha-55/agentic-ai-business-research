@@ -21,7 +21,6 @@ import {
   Clock3,
   Code2,
   Compass,
-  Copy,
   Database,
   FileBarChart,
   FileText,
@@ -3404,15 +3403,6 @@ function ReportViewer({
 
         <div className="toolbar-actions">
 
-          <button
-            className="icon-btn"
-            title="Copy report"
-            onClick={() =>
-              navigator.clipboard?.writeText(content)
-            }
-          >
-            <Copy size={16} />
-          </button>
 
           <button
             className="icon-btn"
@@ -3448,15 +3438,6 @@ function ReportViewer({
             <Printer size={16} />
           </button>
 
-          <button
-            className="icon-btn danger"
-            title="Delete report"
-            onClick={() =>
-              onDelete(String(report.id))
-            }
-          >
-            <Trash2 size={16} />
-          </button>
 
         </div>
       </div>
