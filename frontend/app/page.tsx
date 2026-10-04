@@ -339,7 +339,6 @@ function ThemeSwitcher({
         [
           ['light', Sun],
           ['dark', Moon],
-          ['system', CircleDot],
         ] as const
       ).map(([value, Icon]) => (
         <button
@@ -397,6 +396,35 @@ function Sidebar({
       </div>
 
 
+      <button
+        type="button"
+        className="sidebar-back-btn"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '9px 10px',
+          marginBottom: 12,
+          border: '1px solid rgba(127, 127, 127, 0.20)',
+          borderRadius: 10,
+          background: 'transparent',
+          color: 'inherit',
+          cursor: 'pointer',
+          fontSize: 12,
+          fontWeight: 600,
+          textAlign: 'left',
+        }}
+        onClick={() => {
+          setView('dashboard')
+          setMobileOpen(false)
+        }}
+        title="Back to dashboard"
+      >
+        <ArrowLeft size={16} />
+        <span>Back</span>
+      </button>
+
       <div className="workspace-pill">
 
         <span className="workspace-avatar">
@@ -410,7 +438,7 @@ function Sidebar({
               <small>Agentic AI System</small>
             </span>
 
-            <ChevronDown size={14} />
+            {/* Workspace dropdown removed. */}
           </>
         )}
 
@@ -1193,34 +1221,89 @@ export default function Page() {
   const deleteReport =
     async (id: string) => {
 
-      try {
+      const reportId = String(id)
 
+      try {
         await axios.delete(
-          `${API_BASE}/reports/${id}`
+          `${API_BASE}/reports/${reportId}`
         )
 
         setReports(current =>
-          current.filter(
-            report =>
-              (
-                report.id ||
-                (report as any).report_id
-              ) !== id
+          current.filter(report =>
+            String(
+              report.id ??
+              (report as any).report_id ??
+              ''
+            ) !== reportId
           )
         )
 
         if (
-          selectedReport?.id === id
+          selectedReport &&
+          String(selectedReport.id) === reportId
         ) {
           setSelectedReport(null)
         }
-
       } catch {
-
         setError(
           'Unable to delete this report. Please try again.'
         )
+      }
+    }
 
+
+  // -------------------------------------------------------
+  // OPEN REPORT
+  // -------------------------------------------------------
+
+  const openReport =
+    async (report: Report) => {
+
+      const reportId = String(
+        report.id ??
+        (report as any).report_id ??
+        ''
+      )
+
+      if (report.content || report.final_report) {
+        setSelectedReport({
+          ...report,
+          id: reportId,
+          content:
+            report.content ??
+            report.final_report,
+        })
+        setView('reports')
+        return
+      }
+
+      try {
+        const response = await axios.get(
+          `${API_BASE}/reports/${reportId}`
+        )
+
+        const openedReport =
+          response.data?.report ??
+          response.data
+
+        setSelectedReport({
+          ...report,
+          ...openedReport,
+          id: String(
+            openedReport?.id ??
+            openedReport?.report_id ??
+            reportId
+          ),
+          content:
+            openedReport?.content ??
+            openedReport?.final_report ??
+            report.content ??
+            report.final_report,
+        })
+
+        setView('reports')
+      } catch {
+        setError('Unable to open report.')
       }
     }
 
@@ -1262,7 +1345,6 @@ export default function Page() {
           reports={reports}
           selectedReport={selectedReport}
           setSelectedReport={setSelectedReport}
-          onDelete={deleteReport}
         />
       )
     }
@@ -1273,40 +1355,7 @@ export default function Page() {
           reports={filteredReports}
           search={historySearch}
           setSearch={setHistorySearch}
-          setView={setView}
-          onOpen={async report => {
-
-            try {
-
-              const response =
-                await axios.get(
-                  `${API_BASE}/reports/${report.id}`
-                )
-
-              const openedReport =
-                response.data
-
-              setSelectedReport({
-                ...openedReport,
-                content:
-                  openedReport?.content ??
-                  openedReport?.final_report,
-                id:
-                  openedReport?.id ??
-                  openedReport?.report_id,
-              })
-
-              setView('reports')
-
-            } catch {
-
-              setError(
-                'Unable to open report.'
-              )
-
-            }
-
-          }}
+          onOpen={openReport}
           onDelete={deleteReport}
           loading={loadingReports}
         />
@@ -1321,6 +1370,8 @@ export default function Page() {
       <Dashboard
         reports={reports}
         setView={setView}
+        onOpenReport={openReport}
+        onDeleteReport={deleteReport}
       />
     )
   }
@@ -1382,9 +1433,13 @@ export default function Page() {
 function Dashboard({
   reports,
   setView,
+  onOpenReport,
+  onDeleteReport,
 }: {
   reports: Report[]
   setView: (v: View) => void
+  onOpenReport: (report: Report) => void
+  onDeleteReport: (id: string) => void
 }) {
 
   return (
@@ -1566,6 +1621,8 @@ function Dashboard({
                       report.id || i
                     }
                     report={report}
+                    onOpen={onOpenReport}
+                    onDelete={onDeleteReport}
                   />
                 ))}
 
@@ -1629,34 +1686,48 @@ function Dashboard({
 
 function ResearchRow({
   report,
+  onOpen,
+  onDelete,
 }: {
   report: Report
+  onOpen: (report: Report) => void
+  onDelete: (id: string) => void
 }) {
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const reportId = String(report.id || '')
+
   return (
-    <div className="research-row">
+    <div
+      className="research-row"
+      onClick={() => onOpen(report)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpen(report)
+        }
+      }}
+    >
 
       <div className="row-icon">
         <FileText size={17} />
       </div>
 
       <div className="row-main">
-
         <strong>
           {report.user_query ||
             report.query ||
             'Untitled research'}
         </strong>
-
         <span>
           {formatReportDate(report.created_at)}
           {' · '}
           {report.id
-            ? `ID ${String(
-                report.id
-              ).slice(0, 8)}`
+            ? `ID ${String(report.id).slice(0, 8)}`
             : 'Report'}
         </span>
-
       </div>
 
       <StatusBadge
@@ -1666,13 +1737,88 @@ function ResearchRow({
         }
       />
 
-      <button className="row-more">
-        <MoreHorizontal size={17} />
-      </button>
+      <div
+        className="recent-row-menu"
+        onClick={event => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="row-more"
+          title="More actions"
+          aria-label="More actions"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(current => !current)}
+        >
+          <MoreHorizontal size={17} />
+        </button>
+
+        {menuOpen && (
+          <div
+            className="recent-row-menu-panel"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 'calc(100% + 6px)',
+              zIndex: 50,
+              minWidth: 145,
+              padding: 5,
+              border: '1px solid rgba(127, 127, 127, 0.22)',
+              borderRadius: 10,
+              background: '#111722',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.28)',
+            }}
+          >
+            <button
+              type="button"
+              style={{
+                display: 'block',
+                width: '100%',
+                border: 0,
+                borderRadius: 7,
+                background: 'transparent',
+                color: 'inherit',
+                padding: '8px 10px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              onClick={() => {
+                setMenuOpen(false)
+                onOpen(report)
+              }}
+            >
+              Open report
+            </button>
+            <button
+              type="button"
+              className="danger-action"
+              style={{
+                display: 'block',
+                width: '100%',
+                border: 0,
+                borderRadius: 7,
+                background: 'transparent',
+                color: '#ff7777',
+                padding: '8px 10px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              onClick={() => {
+                setMenuOpen(false)
+                onDelete(reportId)
+              }}
+            >
+              Delete report
+            </button>
+          </div>
+        )}
+      </div>
 
     </div>
   )
 }
+
 
 
 // ---------------------------------------------------------
@@ -2555,14 +2701,12 @@ function Reports({
   reports,
   selectedReport,
   setSelectedReport,
-  onDelete,
 }: {
   reports: Report[]
   selectedReport: Report | null
   setSelectedReport: (
     r: Report | null
   ) => void
-  onDelete: (id: string) => void
 }) {
 
   if (!selectedReport) {
@@ -2678,7 +2822,6 @@ function Reports({
       onBack={() =>
         setSelectedReport(null)
       }
-      onDelete={onDelete}
     />
   )
 }
@@ -3099,11 +3242,9 @@ function MarkdownBlock({ text }: { text: string }) {
 function ReportViewer({
   report,
   onBack,
-  onDelete,
 }: {
   report: Report
   onBack: () => void
-  onDelete: (id: string) => void
 }) {
 
   const reportViewerRef = useRef<HTMLDivElement | null>(null)
@@ -3142,6 +3283,70 @@ function ReportViewer({
   return (
     <>
       <style jsx global>{`
+        .sidebar-back-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 10px;
+          margin: 0 0 12px;
+          border: 1px solid rgba(127, 127, 127, 0.20);
+          border-radius: 10px;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          text-align: left;
+        }
+
+        .sidebar-back-btn:hover {
+          background: rgba(127, 127, 127, 0.10);
+        }
+
+        .recent-row-menu {
+          position: relative;
+          flex: 0 0 auto;
+        }
+
+        .recent-row-menu-panel {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 6px);
+          z-index: 50;
+          min-width: 145px;
+          padding: 5px;
+          border: 1px solid rgba(127, 127, 127, 0.22);
+          border-radius: 10px;
+          background: #111722;
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+        }
+
+        .recent-row-menu-panel button {
+          display: block;
+          width: 100%;
+          border: 0;
+          border-radius: 7px;
+          background: transparent;
+          color: inherit;
+          padding: 8px 10px;
+          text-align: left;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .recent-row-menu-panel button:hover {
+          background: rgba(127, 127, 127, 0.10);
+        }
+
+        .recent-row-menu-panel .danger-action {
+          color: #ff7777;
+        }
+
+        .research-row {
+          cursor: pointer;
+        }
+
         /* -------------------------------------------------------
            REPORT VIEWER SCROLLING
            ------------------------------------------------------- */
@@ -3596,7 +3801,6 @@ function History({
   reports,
   search,
   setSearch,
-  setView,
   onOpen,
   onDelete,
   loading,
@@ -3604,7 +3808,6 @@ function History({
   reports: Report[]
   search: string
   setSearch: (s: string) => void
-  setView: (v: View) => void
   onOpen: (r: Report) => void
   onDelete: (id: string) => void
   loading: boolean
@@ -3633,14 +3836,6 @@ function History({
 
         </div>
 
-        <button
-          className="primary-btn"
-          onClick={() => setView('new')}
-          type="button"
-        >
-          <Plus size={16} />
-          New research
-        </button>
 
       </div>
 
@@ -3760,6 +3955,7 @@ function History({
                   <div className="history-actions">
 
                     <button
+                      type="button"
                       onClick={() =>
                         onOpen(report)
                       }
@@ -3769,11 +3965,10 @@ function History({
                     </button>
 
                     <button
+                      type="button"
                       className="icon-btn danger"
                       onClick={() =>
-                        onDelete(
-                          report.id
-                        )
+                        onDelete(String(report.id))
                       }
                     >
                       <Trash2 size={15} />
