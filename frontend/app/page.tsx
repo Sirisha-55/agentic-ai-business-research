@@ -383,6 +383,37 @@ function Sidebar({
       } ${mobileOpen ? 'mobile-open' : ''}`}
     >
 
+      <style jsx global>{`
+        /* Desktop only: pin the sidebar to the viewport so the Collapse
+           button always stays at the bottom-left, even while the page
+           scrolls. Mobile keeps its own slide-in drawer behaviour. */
+        @media (min-width: 1100px) {
+          .app-shell aside.sidebar {
+            position: sticky !important;
+            top: 0 !important;
+            align-self: flex-start !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .app-shell aside.sidebar > * {
+            flex-shrink: 0;
+          }
+
+          .app-shell aside.sidebar .sidebar-bottom {
+            margin-top: auto;
+          }
+        }
+
+        /* Collapsed bar shows icons only. */
+        .app-shell aside.sidebar.collapsed .main-nav button {
+          justify-content: center;
+        }
+      `}</style>
+
       <div className="sidebar-top">
 
         <Logo collapsed={collapsed} />
@@ -404,6 +435,7 @@ function Sidebar({
           width: '100%',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 8,
           padding: '9px 10px',
           marginBottom: 12,
@@ -421,9 +453,10 @@ function Sidebar({
           setMobileOpen(false)
         }}
         title="Back to dashboard"
+        aria-label="Back to dashboard"
       >
         <ArrowLeft size={16} />
-        <span>Back</span>
+        {!collapsed && <span>Back</span>}
       </button>
 
       <div className="workspace-pill">
@@ -458,6 +491,8 @@ function Sidebar({
               className={
                 view === id ? 'active' : ''
               }
+              title={collapsed ? label : undefined}
+              aria-label={label}
               onClick={() => {
                 setView(id)
                 setMobileOpen(false)
@@ -466,14 +501,8 @@ function Sidebar({
 
               <Icon size={18} />
 
-              <span>{label}</span>
-
-              {id === 'new' &&
-                !collapsed && (
-                  <span className="nav-plus">
-                    ⌘N
-                  </span>
-                )}
+              {/* Labels are hidden when the sidebar is collapsed. */}
+              {!collapsed && <span>{label}</span>}
 
             </button>
           )
@@ -518,14 +547,28 @@ function Topbar({
   theme,
   setTheme,
   onMenu,
+  onHome,
 }: {
   title: string
   theme: Theme
   setTheme: (value: Theme) => void
   onMenu: () => void
+  onHome: () => void
 }) {
   return (
     <header className="topbar">
+
+      <style jsx global>{`
+        .topbar-brand:hover {
+          opacity: 0.85;
+        }
+
+        .topbar-brand:focus-visible {
+          outline: 2px solid rgba(124, 108, 255, 0.8);
+          outline-offset: 4px;
+          border-radius: 6px;
+        }
+      `}</style>
 
       <div className="topbar-title">
 
@@ -542,7 +585,40 @@ function Topbar({
             Workspace / {title}
           </span>
 
-          <h1>{title}</h1>
+          {/* Product name: always visible, click to go home. */}
+          <h1>
+            <button
+              type="button"
+              className="topbar-brand"
+              onClick={onHome}
+              title="Go to home"
+              aria-label="AI-powered business research, go to home"
+              style={{
+                display: 'block',
+                margin: 0,
+                padding: 0,
+                border: 0,
+                background: 'none',
+                color: 'inherit',
+                font: 'inherit',
+                fontSize: 'clamp(15px, 4vw, 26px)',
+                lineHeight: 1.2,
+                textAlign: 'left',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+              }}
+            >
+              AI-powered{' '}
+              <em
+                style={{
+                  fontStyle: 'normal',
+                  color: '#a79dff',
+                }}
+              >
+                business research.
+              </em>
+            </button>
+          </h1>
         </div>
 
       </div>
@@ -1556,6 +1632,10 @@ export default function Page() {
           onMenu={() =>
             setMobileOpen(true)
           }
+          onHome={() => {
+            setView('dashboard')
+            setMobileOpen(false)
+          }}
         />
 
         <main className="content">
@@ -1776,7 +1856,6 @@ function Dashboard({
                     }
                     report={report}
                     onOpen={onOpenReport}
-                    onDelete={onDeleteReport}
                   />
                 ))}
 
@@ -1841,15 +1920,10 @@ function Dashboard({
 function ResearchRow({
   report,
   onOpen,
-  onDelete,
 }: {
   report: Report
   onOpen: (report: Report) => void
-  onDelete: (id: string) => void
 }) {
-
-  const [menuOpen, setMenuOpen] = useState(false)
-  const reportId = String(report.id || '')
 
   return (
     <div
@@ -1890,84 +1964,6 @@ function ResearchRow({
           'Completed'
         }
       />
-
-      <div
-        className="recent-row-menu"
-        onClick={event => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          className="row-more"
-          title="More actions"
-          aria-label="More actions"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen(current => !current)}
-        >
-          <MoreHorizontal size={17} />
-        </button>
-
-        {menuOpen && (
-          <div
-            className="recent-row-menu-panel"
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 'calc(100% + 6px)',
-              zIndex: 50,
-              minWidth: 145,
-              padding: 5,
-              border: '1px solid rgba(127, 127, 127, 0.22)',
-              borderRadius: 10,
-              background: '#111722',
-              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.28)',
-            }}
-          >
-            <button
-              type="button"
-              style={{
-                display: 'block',
-                width: '100%',
-                border: 0,
-                borderRadius: 7,
-                background: 'transparent',
-                color: 'inherit',
-                padding: '8px 10px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontSize: 12,
-              }}
-              onClick={() => {
-                setMenuOpen(false)
-                onOpen(report)
-              }}
-            >
-              Open report
-            </button>
-            <button
-              type="button"
-              className="danger-action"
-              style={{
-                display: 'block',
-                width: '100%',
-                border: 0,
-                borderRadius: 7,
-                background: 'transparent',
-                color: '#ff7777',
-                padding: '8px 10px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontSize: 12,
-              }}
-              onClick={() => {
-                setMenuOpen(false)
-                onDelete(reportId)
-              }}
-            >
-              Delete report
-            </button>
-          </div>
-        )}
-      </div>
 
     </div>
   )
@@ -2382,6 +2378,33 @@ function Workspace({
     agent => agentProgress[agent.name]?.status === 'running'
   ).length
 
+  // Running agents get the "ws-running" class: bigger, glowing and pulsing.
+  const runClass = (status: AgentExecutionStatus) =>
+    status === 'running' ? ' ws-running' : ''
+
+  const flowRef = useRef<HTMLDivElement | null>(null)
+
+  // Names of the agents running right now (changes when a new one starts).
+  const runningKey = agents
+    .filter(agent => agentProgress[agent.name]?.status === 'running')
+    .map(agent => agent.name)
+    .join('|')
+
+  // Keep the running agent visible on small screens.
+  useEffect(() => {
+    if (!runningKey) return
+
+    const target =
+      flowRef.current?.querySelector<HTMLElement>('.ws-running')
+
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }
+  }, [runningKey])
+
   return (
     <div className="view-enter">
 
@@ -2461,94 +2484,211 @@ function Workspace({
 
         <div className="workspace-column">
 
-          {/* User query node */}
+          <div className="ws-flow" ref={flowRef}>
 
-          <div className="workspace-node root-node">
+            <style jsx global>{`
+              .ws-flow {
+                --ws-line: rgba(124, 108, 255, 0.7);
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                width: 100%;
+              }
 
-            <span className="node-number">
-              01
-            </span>
+              .ws-three {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+              }
 
-            <div>
+              .ws-cell {
+                min-width: 0;
+                padding: 0 6px;
+              }
 
-              <strong>
-                User query
-              </strong>
+              .ws-cell > *,
+              .ws-cell > * > * {
+                height: 100%;
+                box-sizing: border-box;
+              }
 
-              <small>
-                {query
-                  ? 'Research brief received'
-                  : 'Waiting for research brief'}
-              </small>
+              .ws-fan {
+                position: relative;
+                height: 44px;
+              }
+
+              .ws-fan svg {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                overflow: visible;
+              }
+
+              .ws-fan path {
+                fill: none;
+                stroke: var(--ws-line);
+                stroke-width: 2px;
+                vector-effect: non-scaling-stroke;
+              }
+
+              .ws-fan i {
+                position: absolute;
+                bottom: 0;
+                width: 0;
+                height: 0;
+                transform: translateX(-50%);
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid var(--ws-line);
+              }
+
+              .ws-vline {
+                position: relative;
+                width: 2px;
+                height: 28px;
+                margin: 0 auto;
+                background: var(--ws-line);
+              }
+
+              .ws-vline::after {
+                content: '';
+                position: absolute;
+                left: 50%;
+                bottom: -1px;
+                transform: translateX(-50%);
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid var(--ws-line);
+              }
+
+              .ws-mobile-only {
+                display: none;
+              }
+
+              /* ---------- running agent: bigger + glowing so it pulls focus ---------- */
+
+              .ws-flow .workspace-node {
+                transition:
+                  transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 0.3s ease,
+                  border-color 0.3s ease;
+              }
+
+              .ws-flow .workspace-node.ws-running {
+                position: relative;
+                z-index: 2;
+                transform: scale(1.05);
+                border-color: rgba(124, 108, 255, 0.95);
+                box-shadow:
+                  0 0 0 1px rgba(124, 108, 255, 0.55),
+                  0 16px 40px rgba(124, 108, 255, 0.35);
+                animation: ws-glow 1.8s ease-in-out infinite;
+              }
+
+              .ws-flow .workspace-node.ws-running strong {
+                font-size: 1.08em;
+              }
+
+              .ws-flow .workspace-node.ws-running .status {
+                font-size: 14px;
+                font-weight: 700;
+                padding: 6px 14px;
+                transform: scale(1.12);
+                transform-origin: right center;
+              }
+
+              .ws-flow .workspace-node.ws-running .status-dot {
+                animation: ws-dot 1s ease-in-out infinite;
+              }
+
+              @keyframes ws-glow {
+                0%,
+                100% {
+                  box-shadow:
+                    0 0 0 1px rgba(124, 108, 255, 0.55),
+                    0 12px 32px rgba(124, 108, 255, 0.25);
+                }
+                50% {
+                  box-shadow:
+                    0 0 0 2px rgba(124, 108, 255, 0.85),
+                    0 18px 46px rgba(124, 108, 255, 0.5);
+                }
+              }
+
+              @keyframes ws-dot {
+                0%,
+                100% {
+                  transform: scale(1);
+                  opacity: 1;
+                }
+                50% {
+                  transform: scale(1.5);
+                  opacity: 0.55;
+                }
+              }
+
+              @media (prefers-reduced-motion: reduce) {
+                .ws-flow .workspace-node,
+                .ws-flow .workspace-node.ws-running,
+                .ws-flow .workspace-node.ws-running .status-dot {
+                  transition: none;
+                  animation: none;
+                }
+              }
+
+              @media (max-width: 640px) {
+                .ws-three {
+                  grid-template-columns: 1fr;
+                  row-gap: 10px;
+                }
+
+                .ws-cell {
+                  padding: 0;
+                }
+
+                .ws-fan {
+                  display: none;
+                }
+
+                .ws-mobile-only {
+                  display: block;
+                }
+              }
+            `}</style>
+
+            {/* 1. User query node */}
+
+            <div className="workspace-node root-node">
+
+              <span className="node-number">
+                01
+              </span>
+
+              <div>
+
+                <strong>
+                  User query
+                </strong>
+
+                <small>
+                  {query
+                    ? 'Research brief received'
+                    : 'Waiting for research brief'}
+                </small>
+
+              </div>
+
+              <CircleDot size={18} />
 
             </div>
 
-            <CircleDot size={18} />
+            <div className="ws-vline" aria-hidden="true" />
 
-          </div>
-
-          <div className="flow-line" />
-
-          {/* Planner Agent */}
-
-          {agents
-            .slice(0, 1)
-            .map(agent => {
-
-              const AgentIcon =
-                agent.icon
-
-              const status =
-                getAgentStatus(
-                  'Planner Agent'
-                )
-
-              return (
-                <div key={agent.name}>
-
-                  <div className="workspace-node">
-
-                    <span
-                      className={`agent-icon small accent-${agent.accent}`}
-                    >
-                      <AgentIcon size={15} />
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        {agent.name}
-                      </strong>
-
-                      <small>
-                        {agentProgress[
-                          'Planner Agent'
-                        ]?.message ||
-                          agent.description}
-                      </small>
-
-                    </div>
-
-                    <StatusBadge
-                      status={getStatusLabel(
-                        status
-                      )}
-                    />
-
-                  </div>
-
-                  <div className="flow-line" />
-
-                </div>
-              )
-            })}
-
-          {/* Parallel research agents */}
-
-          <div className="workspace-parallel">
+            {/* 2. Planner Agent */}
 
             {agents
-              .slice(1, 4)
+              .slice(0, 1)
               .map(agent => {
 
                 const AgentIcon =
@@ -2560,12 +2700,9 @@ function Workspace({
                   )
 
                 return (
-                  <div
-                    key={agent.name}
-                    className="workspace-parallel-node"
-                  >
+                  <div key={agent.name}>
 
-                    <div className="workspace-node">
+                    <div className={`workspace-node${runClass(status)}`}>
 
                       <span
                         className={`agent-icon small accent-${agent.accent}`}
@@ -2600,135 +2737,223 @@ function Workspace({
                 )
               })}
 
-          </div>
+            {/* The Planner splits into three branches */}
 
-          <div className="merge-line">
-            <span />
-            <span />
-            <span />
-          </div>
+            <div className="ws-fan" aria-hidden="true">
+              <svg
+                viewBox="0 0 100 44"
+                preserveAspectRatio="none"
+                focusable="false"
+              >
+                <path d="M50 0 V22 M16.6667 22 H83.3333 M16.6667 22 V44 M50 22 V44 M83.3333 22 V44" />
+              </svg>
+              <i style={{ left: '16.6667%' }} />
+              <i style={{ left: '50%' }} />
+              <i style={{ left: '83.3333%' }} />
+            </div>
+            <div className="ws-vline ws-mobile-only" aria-hidden="true" />
 
-          <div className="flow-line" />
+            {/* 3. Parallel research agents */}
 
-          {/* Analysis Agent */}
+            <div className="ws-three">
 
-          {agents
-            .slice(4, 5)
-            .map(agent => {
+              {agents
+                .slice(1, 4)
+                .map(agent => {
 
-              const AgentIcon =
-                agent.icon
+                  const AgentIcon =
+                    agent.icon
 
-              const status =
-                getAgentStatus(
-                  agent.name
-                )
+                  const status =
+                    getAgentStatus(
+                      agent.name
+                    )
 
-              return (
-                <div key={agent.name}>
-
-                  <div className="workspace-node">
-
-                    <span
-                      className={`agent-icon small accent-${agent.accent}`}
+                  return (
+                    <div
+                      key={agent.name}
+                      className="ws-cell"
                     >
-                      <AgentIcon size={15} />
-                    </span>
 
-                    <div>
+                      <div className="workspace-parallel-node">
 
-                      <strong>
-                        {agent.name}
-                      </strong>
+                        <div className={`workspace-node${runClass(status)}`}>
 
-                      <small>
-                        {agentProgress[
-                          agent.name
-                        ]?.message ||
-                          agent.description}
-                      </small>
+                          <span
+                            className={`agent-icon small accent-${agent.accent}`}
+                          >
+                            <AgentIcon size={15} />
+                          </span>
+
+                          <div>
+
+                            <strong>
+                              {agent.name}
+                            </strong>
+
+                            <small>
+                              {agentProgress[
+                                agent.name
+                              ]?.message ||
+                                agent.description}
+                            </small>
+
+                          </div>
+
+                          <StatusBadge
+                            status={getStatusLabel(
+                              status
+                            )}
+                          />
+
+                        </div>
+
+                      </div>
+
+                    </div>
+                  )
+                })}
+
+            </div>
+
+            {/* The three branches merge back into one */}
+
+            <div className="ws-fan" aria-hidden="true">
+              <svg
+                viewBox="0 0 100 44"
+                preserveAspectRatio="none"
+                focusable="false"
+              >
+                <path d="M16.6667 0 V22 M50 0 V22 M83.3333 0 V22 M16.6667 22 H83.3333 M50 22 V44" />
+              </svg>
+              <i style={{ left: '50%' }} />
+            </div>
+            <div className="ws-vline ws-mobile-only" aria-hidden="true" />
+
+            {/* 4. Analysis Agent */}
+
+            {agents
+              .slice(4, 5)
+              .map(agent => {
+
+                const AgentIcon =
+                  agent.icon
+
+                const status =
+                  getAgentStatus(
+                    agent.name
+                  )
+
+                return (
+                  <div key={agent.name}>
+
+                    <div className={`workspace-node${runClass(status)}`}>
+
+                      <span
+                        className={`agent-icon small accent-${agent.accent}`}
+                      >
+                        <AgentIcon size={15} />
+                      </span>
+
+                      <div>
+
+                        <strong>
+                          {agent.name}
+                        </strong>
+
+                        <small>
+                          {agentProgress[
+                            agent.name
+                          ]?.message ||
+                            agent.description}
+                        </small>
+
+                      </div>
+
+                      <StatusBadge
+                        status={getStatusLabel(
+                          status
+                        )}
+                      />
 
                     </div>
 
-                    <StatusBadge
-                      status={getStatusLabel(
-                        status
-                      )}
-                    />
-
                   </div>
-
-                  <div className="flow-line" />
-
-                </div>
-              )
-            })}
-
-          {/* Writer → Reviewer → Final Report */}
-
-          {agents
-            .slice(5)
-            .map((agent, i) => {
-
-              const AgentIcon =
-                agent.icon
-
-              const status =
-                getAgentStatus(
-                  agent.name
                 )
+              })}
 
-              return (
-                <div
-                  key={agent.name}
-                >
+            <div className="ws-vline" aria-hidden="true" />
 
+            {/* 5. Writer → Reviewer → Final Report */}
+
+            {agents
+              .slice(5)
+              .map((agent, i) => {
+
+                const AgentIcon =
+                  agent.icon
+
+                const status =
+                  getAgentStatus(
+                    agent.name
+                  )
+
+                return (
                   <div
-                    className={`workspace-node ${
-                      agent.name ===
-                      'Final Report Agent'
-                        ? 'final-node'
-                        : ''
-                    }`}
+                    key={agent.name}
                   >
 
-                    <span
-                      className={`agent-icon small accent-${agent.accent}`}
+                    <div
+                      className={`workspace-node ${
+                        agent.name ===
+                        'Final Report Agent'
+                          ? 'final-node'
+                          : ''
+                      }${runClass(status)}`}
                     >
-                      <AgentIcon size={15} />
-                    </span>
 
-                    <div>
+                      <span
+                        className={`agent-icon small accent-${agent.accent}`}
+                      >
+                        <AgentIcon size={15} />
+                      </span>
 
-                      <strong>
-                        {agent.name}
-                      </strong>
+                      <div>
 
-                      <small>
-                        {agentProgress[
-                          agent.name
-                        ]?.message ||
-                          agent.description}
-                      </small>
+                        <strong>
+                          {agent.name}
+                        </strong>
+
+                        <small>
+                          {agentProgress[
+                            agent.name
+                          ]?.message ||
+                            agent.description}
+                        </small>
+
+                      </div>
+
+                      <StatusBadge
+                        status={getStatusLabel(
+                          status
+                        )}
+                      />
 
                     </div>
 
-                    <StatusBadge
-                      status={getStatusLabel(
-                        status
-                      )}
-                    />
+                    {i <
+                      agents.slice(5).length - 1 && (
+                      <div
+                        className="ws-vline"
+                        aria-hidden="true"
+                      />
+                    )}
 
                   </div>
+                )
+              })}
 
-                  {i <
-                    agents.slice(5).length - 1 && (
-                    <div className="flow-line" />
-                  )}
-
-                </div>
-              )
-            })}
+          </div>
 
         </div>
 
@@ -3767,6 +3992,552 @@ function MarkdownBlock({ text }: { text: string }) {
 }
 
 
+// ---------------------------------------------------------
+// PDF EXPORT (no external library needed)
+// ---------------------------------------------------------
+
+// Helvetica glyph widths (1/1000 em) for ASCII 32..126.
+const PDF_WIDTHS_REGULAR = [
+  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+]
+
+const PDF_WIDTHS_BOLD = [
+  278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
+]
+
+// Widths of a few extra WinAnsi characters: [regular, bold].
+const PDF_SPECIAL_WIDTHS: Record<number, [number, number]> = {
+  0x85: [1000, 1000],
+  0x91: [222, 278],
+  0x92: [222, 278],
+  0x93: [333, 500],
+  0x94: [333, 500],
+  0x95: [350, 350],
+  0x96: [556, 556],
+  0x97: [1000, 1000],
+  0xa0: [278, 278],
+}
+
+// Unicode characters that exist in the PDF's WinAnsi font encoding.
+const PDF_UNICODE_TO_WINANSI: Record<string, number> = {
+  '\u20ac': 0x80,
+  '\u2026': 0x85,
+  '\u2018': 0x91,
+  '\u2019': 0x92,
+  '\u201c': 0x93,
+  '\u201d': 0x94,
+  '\u2022': 0x95,
+  '\u2013': 0x96,
+  '\u2014': 0x97,
+  '\u2122': 0x99,
+}
+
+// Characters the standard PDF font cannot draw get a readable stand-in.
+const PDF_TEXT_REPLACEMENTS: Record<string, string> = {
+  '\u20b9': 'Rs ',
+  '\u2192': '->',
+  '\u2190': '<-',
+  '\u2265': '>=',
+  '\u2264': '<=',
+  '\u2248': '~',
+  '\u2713': 'v',
+  '\u2714': 'v',
+  '\u2011': '-',
+  '\u2212': '-',
+  '\u2002': ' ',
+  '\u2003': ' ',
+  '\u2009': ' ',
+  '\u200a': ' ',
+  '\u202f': ' ',
+  '\u200b': '',
+  '\u200d': '',
+  '\ufe0f': '',
+}
+
+// Converts text to a "binary string" where every character is one
+// WinAnsi byte (0-255), which is what the PDF font expects.
+function pdfEncode(text: string): string {
+  let out = ''
+
+  for (const ch of Array.from(text)) {
+    const code = ch.codePointAt(0) as number
+
+    if (code === 9) {
+      out += '    '
+      continue
+    }
+
+    if (code < 32 || (code >= 127 && code < 160)) {
+      continue
+    }
+
+    if (code < 127) {
+      out += ch
+      continue
+    }
+
+    if (PDF_UNICODE_TO_WINANSI[ch] !== undefined) {
+      out += String.fromCharCode(PDF_UNICODE_TO_WINANSI[ch])
+      continue
+    }
+
+    if (PDF_TEXT_REPLACEMENTS[ch] !== undefined) {
+      out += PDF_TEXT_REPLACEMENTS[ch]
+      continue
+    }
+
+    if (code === 0xa0) {
+      out += ' '
+      continue
+    }
+
+    if (code >= 0xa1 && code <= 0xff) {
+      out += ch
+      continue
+    }
+
+    // Emoji and symbols the font cannot show are dropped.
+    if (code >= 0x1f000) {
+      continue
+    }
+
+    out += '?'
+  }
+
+  return out
+}
+
+function pdfCharWidth(code: number, bold: boolean): number {
+  if (code >= 32 && code <= 126) {
+    return (bold ? PDF_WIDTHS_BOLD : PDF_WIDTHS_REGULAR)[code - 32]
+  }
+
+  const special = PDF_SPECIAL_WIDTHS[code]
+
+  if (special) {
+    return special[bold ? 1 : 0]
+  }
+
+  return 556
+}
+
+function pdfTextWidth(
+  encoded: string,
+  size: number,
+  bold: boolean
+): number {
+  let units = 0
+
+  for (let i = 0; i < encoded.length; i++) {
+    units += pdfCharWidth(encoded.charCodeAt(i), bold)
+  }
+
+  return (units * size) / 1000
+}
+
+// Escapes a string for use inside a PDF literal string ( ... ).
+function pdfEscape(encoded: string): string {
+  return encoded
+    .replace(/[\\()]/g, match => '\\' + match)
+    .replace(/[^\x20-\x7e]/g, char =>
+      '\\' + char.charCodeAt(0).toString(8).padStart(3, '0')
+    )
+}
+
+// Splits text into lines that fit inside maxWidth.
+function pdfWrap(
+  encoded: string,
+  size: number,
+  bold: boolean,
+  maxWidth: number
+): string[] {
+  const lines: string[] = []
+  let current = ''
+
+  const words = encoded
+    .split(' ')
+    .filter(word => word.length > 0)
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+
+    if (pdfTextWidth(candidate, size, bold) <= maxWidth) {
+      current = candidate
+      continue
+    }
+
+    if (current) {
+      lines.push(current)
+      current = ''
+    }
+
+    if (pdfTextWidth(word, size, bold) <= maxWidth) {
+      current = word
+      continue
+    }
+
+    // A single very long word (for example a URL): break it by characters.
+    let chunk = ''
+
+    for (let i = 0; i < word.length; i++) {
+      const next = chunk + word[i]
+
+      if (
+        chunk &&
+        pdfTextWidth(next, size, bold) > maxWidth
+      ) {
+        lines.push(chunk)
+        chunk = word[i]
+      } else {
+        chunk = next
+      }
+    }
+
+    current = chunk
+  }
+
+  if (current) {
+    lines.push(current)
+  }
+
+  return lines
+}
+
+// Removes markdown symbols so the PDF shows clean text.
+function pdfCleanInline(value: string): string {
+  return value
+    .replace(/^>\s*/, '')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*/g, '')
+    .trim()
+}
+
+// Builds a real PDF file (A4, Helvetica, automatic page breaks and
+// page numbers) from the report title, a meta line and markdown text.
+function buildReportPdf(
+  title: string,
+  meta: string,
+  content: string
+): Blob {
+
+  const PAGE_W = 595.28
+  const PAGE_H = 841.89
+  const MARGIN = 56
+  const BOTTOM = 70
+  const TEXT_W = PAGE_W - MARGIN * 2
+  const MARKER_W = 18
+
+  const pages: string[][] = [[]]
+  let y = PAGE_H - MARGIN
+  let gap = 0
+
+  const newPage = () => {
+    pages.push([])
+    y = PAGE_H - MARGIN
+  }
+
+  const ensure = (height: number) => {
+    if (y - height < BOTTOM) {
+      newPage()
+    }
+  }
+
+  const drawText = (
+    encoded: string,
+    x: number,
+    size: number,
+    bold: boolean,
+    gray: number
+  ) => {
+    pages[pages.length - 1].push(
+      `${gray} g BT /${bold ? 'F2' : 'F1'} ${size} Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm (${pdfEscape(encoded)}) Tj ET`
+    )
+  }
+
+  const drawRule = () => {
+    ensure(14)
+    y -= 6
+    pages[pages.length - 1].push(
+      `0.82 g ${MARGIN} ${y.toFixed(2)} ${TEXT_W.toFixed(2)} 0.7 re f`
+    )
+    y -= 8
+  }
+
+  const block = (
+    text: string,
+    options: {
+      size: number
+      bold?: boolean
+      gray?: number
+      indent?: number
+      marker?: string
+      before?: number
+      after?: number
+      keepNext?: boolean
+    }
+  ) => {
+    const size = options.size
+    const bold = Boolean(options.bold)
+    const gray = options.gray ?? 0.12
+    const indent = options.indent ?? 0
+    const markerWidth = options.marker ? MARKER_W : 0
+    const lineHeight = size * 1.4
+
+    const lines = pdfWrap(
+      pdfEncode(text),
+      size,
+      bold,
+      TEXT_W - indent - markerWidth
+    )
+
+    if (!lines.length) {
+      return
+    }
+
+    const before = Math.max(options.before ?? 0, gap)
+    gap = 0
+
+    if (before && y < PAGE_H - MARGIN) {
+      y -= before
+    }
+
+    // Headings stay together with the text that follows them.
+    ensure(lineHeight + (options.keepNext ? 36 : 0))
+
+    lines.forEach((line, index) => {
+      ensure(lineHeight)
+      y -= lineHeight
+
+      if (index === 0 && options.marker) {
+        drawText(
+          pdfEncode(options.marker),
+          MARGIN + indent,
+          size,
+          bold,
+          gray
+        )
+      }
+
+      drawText(
+        line,
+        MARGIN + indent + markerWidth,
+        size,
+        bold,
+        gray
+      )
+    })
+
+    y -= options.after ?? 4
+  }
+
+  // ---------- title block ----------
+
+  block(title || 'Research report', {
+    size: 18,
+    bold: true,
+    after: 6,
+  })
+
+  block(meta, {
+    size: 9,
+    gray: 0.4,
+    after: 2,
+  })
+
+  drawRule()
+
+  // ---------- report body ----------
+
+  let tableRow = 0
+
+  for (const rawLine of content.replace(/\r\n?/g, '\n').split('\n')) {
+
+    const line = rawLine.replace(/\s+$/, '')
+    const trimmed = line.trim()
+
+    if (!trimmed) {
+      tableRow = 0
+      gap = 6
+      continue
+    }
+
+    // Markdown table row
+    if (/^\|.*\|$/.test(trimmed)) {
+      const cells = trimmed
+        .replace(/^\||\|$/g, '')
+        .split('|')
+        .map(cell => pdfCleanInline(cell.trim()))
+
+      if (cells.every(cell => /^:?-{2,}:?$/.test(cell))) {
+        continue
+      }
+
+      block(cells.join('  |  '), {
+        size: 9.5,
+        bold: tableRow === 0,
+        before: tableRow === 0 ? 6 : 0,
+        after: 3,
+      })
+
+      tableRow += 1
+      continue
+    }
+
+    tableRow = 0
+
+    const heading = trimmed.match(/^(#{1,6})\s+(.*)$/)
+
+    if (heading) {
+      const level = heading[1].length
+      const size =
+        level === 1 ? 16 : level === 2 ? 14 : level === 3 ? 12 : 11
+
+      block(pdfCleanInline(heading[2]), {
+        size,
+        bold: true,
+        before: 12,
+        after: 4,
+        keepNext: true,
+      })
+      continue
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      drawRule()
+      continue
+    }
+
+    const boldOnly = trimmed.match(/^\*\*([^*]+)\*\*:?$/)
+
+    if (boldOnly) {
+      block(pdfCleanInline(boldOnly[1]), {
+        size: 12,
+        bold: true,
+        before: 10,
+        after: 3,
+        keepNext: true,
+      })
+      continue
+    }
+
+    const bullet = line.match(/^(\s*)[-*+\u2022]\s+(.*)$/)
+
+    if (bullet) {
+      const level = Math.min(
+        Math.floor(bullet[1].replace(/\t/g, '  ').length / 2),
+        3
+      )
+
+      block(pdfCleanInline(bullet[2]), {
+        size: 10.5,
+        indent: 10 + level * 14,
+        marker: '\u2022',
+        after: 3,
+      })
+      continue
+    }
+
+    const numbered = line.match(/^(\s*)(\d+)[.)]\s+(.*)$/)
+
+    if (numbered) {
+      block(pdfCleanInline(numbered[3]), {
+        size: 10.5,
+        indent: 10,
+        marker: `${numbered[2]}.`,
+        after: 3,
+      })
+      continue
+    }
+
+    block(pdfCleanInline(trimmed), {
+      size: 10.5,
+      after: 6,
+    })
+  }
+
+  // ---------- page numbers ----------
+
+  pages.forEach((pageOps, index) => {
+    const label = pdfEncode(`Page ${index + 1} of ${pages.length}`)
+    const width = pdfTextWidth(label, 8, false)
+
+    pageOps.push(
+      `0.5 g BT /F1 8 Tf 1 0 0 1 ${((PAGE_W - width) / 2).toFixed(2)} 34 Tm (${pdfEscape(label)}) Tj ET`
+    )
+  })
+
+  // ---------- assemble the PDF file ----------
+
+  const objects: string[] = []
+  const pageNumbers: number[] = []
+
+  objects[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+  objects[3] =
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'
+  objects[4] =
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'
+
+  pages.forEach((pageOps, index) => {
+    const pageNumber = 5 + index * 2
+    const contentNumber = pageNumber + 1
+    const stream = pageOps.join('\n')
+
+    pageNumbers.push(pageNumber)
+
+    objects[pageNumber] =
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] ` +
+      `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentNumber} 0 R >>`
+
+    objects[contentNumber] =
+      `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
+  })
+
+  objects[2] =
+    `<< /Type /Pages /Kids [${pageNumbers
+      .map(number => `${number} 0 R`)
+      .join(' ')}] /Count ${pageNumbers.length} >>`
+
+  const infoNumber = objects.length
+
+  objects[infoNumber] =
+    `<< /Title (${pdfEscape(
+      title.replace(/[^\x20-\x7e]/g, '')
+    )}) /Producer (Business Research) >>`
+
+  let file = '%PDF-1.4\n%' + String.fromCharCode(0xe2, 0xe3, 0xcf, 0xd3) + '\n'
+  const offsets: number[] = []
+
+  for (let n = 1; n < objects.length; n++) {
+    offsets[n] = file.length
+    file += `${n} 0 obj\n${objects[n]}\nendobj\n`
+  }
+
+  const xrefStart = file.length
+
+  file += `xref\n0 ${objects.length}\n0000000000 65535 f \n`
+
+  for (let n = 1; n < objects.length; n++) {
+    file += `${String(offsets[n]).padStart(10, '0')} 00000 n \n`
+  }
+
+  file +=
+    `trailer\n<< /Size ${objects.length} /Root 1 0 R /Info ${infoNumber} 0 R >>\n` +
+    `startxref\n${xrefStart}\n%%EOF`
+
+  const bytes = new Uint8Array(file.length)
+
+  for (let i = 0; i < file.length; i++) {
+    bytes[i] = file.charCodeAt(i) & 0xff
+  }
+
+  return new Blob([bytes], { type: 'application/pdf' })
+}
+
+
 function ReportViewer({
   report,
   onBack,
@@ -4139,12 +4910,39 @@ function ReportViewer({
 
           <button
             className="icon-btn"
-            title="Download report"
+            title="Download report as PDF"
             onClick={() => {
-              const blob = new Blob(
-                [content],
-                { type: 'text/plain' }
-              )
+              const reportTitle =
+                report.user_query ||
+                report.query ||
+                'Research report'
+
+              const fileBase =
+                reportTitle
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-+|-+$/g, '')
+                  .slice(0, 60) ||
+                `report-${report.id || 'download'}`
+
+              let blob: Blob
+              let fileName: string
+
+              try {
+                blob = buildReportPdf(
+                  reportTitle,
+                  `Research report  ·  ${formatReportDate(report.created_at)}  ·  Report ID ${report.id || 'Unavailable'}`,
+                  content
+                )
+                fileName = `${fileBase}.pdf`
+              } catch {
+                // Safety net: if the PDF cannot be built, still save the text.
+                blob = new Blob(
+                  [content],
+                  { type: 'text/plain' }
+                )
+                fileName = `${fileBase}.txt`
+              }
 
               const url =
                 URL.createObjectURL(blob)
@@ -4153,11 +4951,15 @@ function ReportViewer({
                 document.createElement('a')
 
               a.href = url
-              a.download =
-                `${report.id || 'report'}.txt`
+              a.download = fileName
+              document.body.appendChild(a)
               a.click()
+              document.body.removeChild(a)
 
-              URL.revokeObjectURL(url)
+              window.setTimeout(
+                () => URL.revokeObjectURL(url),
+                1000
+              )
             }}
           >
             <ArrowDownToLine size={16} />
