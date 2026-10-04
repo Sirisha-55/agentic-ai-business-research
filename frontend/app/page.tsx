@@ -1047,6 +1047,9 @@ export default function Page() {
   const [loadingReports, setLoadingReports] =
     useState(true)
 
+  const [backendOffline, setBackendOffline] =
+    useState(false)
+
   const [query, setQuery] =
     useState('')
 
@@ -1150,10 +1153,14 @@ export default function Page() {
           }))
         )
 
+        setBackendOffline(false)
+
       } catch {
 
         // Keep the dashboard usable while the backend is unavailable.
         // Real backend connectivity will be handled when API integration is enabled.
+
+        setBackendOffline(true)
 
         setReports([])
 
@@ -1826,6 +1833,48 @@ export default function Page() {
         @media (max-width: 760px) {
           .report-toolbar { flex-direction: row !important; align-items: center !important; }
         }
+
+        /* ---- section kicker: diamond bullet instead of the old line ---- */
+        .section-kicker .kicker-line {
+          flex: 0 0 auto;
+          width: 8px !important; height: 8px !important;
+          min-width: 8px; border-radius: 2px;
+          background: var(--accent-red) !important;
+          transform: rotate(45deg);
+          box-shadow: 0 0 0 3px rgba(184, 58, 58, 0.18);
+        }
+        html.dark .section-kicker .kicker-line { box-shadow: 0 0 0 3px rgba(224, 98, 95, 0.22); }
+
+        /* ---- progress step line + quiet report meta ---- */
+        .step-line {
+          display: block; margin: 2px 0 4px;
+          font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+          color: var(--accent-red);
+        }
+        .report-id-quiet { font-size: 11px; opacity: 0.7; }
+
+        /* ---- keyboard focus rings ---- */
+        button:focus-visible, a:focus-visible, input:focus-visible,
+        textarea:focus-visible, [role='button']:focus-visible {
+          outline: 2px solid var(--accent-red);
+          outline-offset: 2px;
+        }
+
+        /* ---- report blocks: same alignment and size as the intro paragraph ---- */
+        .report-section-body .report-markdown-block {
+          margin-left: 0 !important; padding-left: 0 !important;
+        }
+        .report-section-body .report-markdown-block p {
+          margin-left: 0 !important; padding-left: 0 !important; text-indent: 0 !important;
+          font-size: inherit !important;
+        }
+        .report-section-body .report-markdown-block ul {
+          margin-left: 0 !important; padding-left: 20px !important; list-style: disc outside !important;
+        }
+        .report-section-body .report-markdown-block li {
+          font-size: inherit !important; padding-left: 2px;
+        }
+        .report-section-body .report-markdown-block li::marker { color: var(--accent-red); }
       `}</style>
 
 
@@ -1858,6 +1907,13 @@ export default function Page() {
         />
 
         <main className="content">
+          {backendOffline && (
+            <div className="error-banner" role="status">
+              <AlertCircle size={17} />
+              Can\u2019t reach the research backend, so saved reports may be missing until it is back.
+            </div>
+          )}
+
           {renderView()}
         </main>
 
@@ -2256,6 +2312,29 @@ function ResearchProgress({
           </span>
 
           <h3>Research in progress</h3>
+
+          <span className="step-line">
+            {researchProgressStages.every(
+              st => agentProgress[st.name]?.status === 'completed'
+            )
+              ? 'All 8 steps complete'
+              : `Step ${Math.min(
+                  researchProgressStages.filter(
+                    st => agentProgress[st.name]?.status === 'completed'
+                  ).length + 1,
+                  8
+                )} of 8${
+                  researchProgressStages.some(
+                    st => agentProgress[st.name]?.status === 'running'
+                  )
+                    ? ' \u00b7 ' +
+                      researchProgressStages
+                        .filter(st => agentProgress[st.name]?.status === 'running')
+                        .map(st => st.name)
+                        .join(', ')
+                    : ''
+                }`}
+          </span>
 
           <p>
             {activeAgentMessage}
@@ -2668,6 +2747,13 @@ function Workspace({
           <strong>
             Live workflow visualization
           </strong>
+
+          {researching && (
+            <span className="step-line">
+              Step {Math.min(completedCount + 1, 8)} of 8
+              {runningKey ? ` \u00b7 ${runningKey.split('|').join(', ')}` : ''}
+            </span>
+          )}
 
           <p>
             {researching
@@ -5298,8 +5384,11 @@ function ReportViewer({
               }
             />
 
-            <span>
-              Report ID {report.id || 'Unavailable'}
+            <span
+              className="report-id-quiet"
+              title={`Report ID ${report.id || 'Unavailable'}`}
+            >
+              {sectionMap.size} sections · ID {report.id || 'n/a'}
             </span>
           </div>
 
