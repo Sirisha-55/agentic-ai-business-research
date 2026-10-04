@@ -89,6 +89,43 @@ const API_BASE =
 
 
 // ---------------------------------------------------------
+// REPORT DATE / TIME FORMATTER
+// ---------------------------------------------------------
+
+function formatReportDate(dateString?: string): string {
+  if (!dateString) {
+    return 'Date unavailable'
+  }
+
+  // The backend stores the database timestamp without timezone information.
+  // Render runs in UTC, so explicitly treat the received timestamp as UTC.
+  const normalized = dateString.includes('T')
+    ? dateString
+    : dateString.replace(' ', 'T')
+
+  const utcDate = new Date(
+    normalized.endsWith('Z')
+      ? normalized
+      : `${normalized}Z`
+  )
+
+  if (Number.isNaN(utcDate.getTime())) {
+    return 'Date unavailable'
+  }
+
+  // The browser automatically converts UTC to the user's local timezone.
+  return utcDate.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+
+// ---------------------------------------------------------
 // ERROR MESSAGE HELPER
 // ---------------------------------------------------------
 
@@ -1621,11 +1658,7 @@ function ResearchRow({
         </strong>
 
         <span>
-          {report.created_at
-            ? new Date(
-                report.created_at
-              ).toLocaleDateString()
-            : 'Date unavailable'}
+          {formatReportDate(report.created_at)}
           {' · '}
           {report.id
             ? `ID ${String(
@@ -2617,11 +2650,7 @@ function Reports({
                   </h3>
 
                   <p>
-                    {report.created_at
-                      ? new Date(
-                          report.created_at
-                        ).toLocaleDateString()
-                      : 'Date unavailable'}
+                    {formatReportDate(report.created_at)}
                   </p>
 
                   <span className="report-tile-link">
@@ -3376,16 +3405,7 @@ function ReportViewer({
           <span className="eyebrow accent-eyebrow">
             <FileText size={13} />
             Research report ·{' '}
-            {report.created_at
-              ? new Date(report.created_at).toLocaleString('en-IN', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                })
-              : 'Date unavailable'}
+            {formatReportDate(report.created_at)}
           </span>
 
           <h2>
@@ -3630,11 +3650,7 @@ function History({
 
                   <span className="date-cell">
 
-                    {report.created_at
-                      ? new Date(
-                          report.created_at
-                        ).toLocaleDateString()
-                      : '—'}
+                    {report.created_at ? formatReportDate(report.created_at) : '—'}
 
                   </span>
 
