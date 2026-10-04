@@ -380,14 +380,6 @@ function Sidebar({
       className={`sidebar ${
         collapsed ? 'collapsed' : ''
       } ${mobileOpen ? 'mobile-open' : ''}`}
-      style={{
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        maxHeight: '100vh',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-      }}
     >
 
       <div className="sidebar-top">
@@ -412,7 +404,6 @@ function Sidebar({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          justifyContent: collapsed ? 'center' : 'flex-start',
           padding: '9px 10px',
           marginBottom: 12,
           border: '1px solid rgba(127, 127, 127, 0.20)',
@@ -431,15 +422,10 @@ function Sidebar({
         title="Back to dashboard"
       >
         <ArrowLeft size={16} />
-        {!collapsed && <span>Back</span>}
+        <span>Back</span>
       </button>
 
-      <div
-        className="workspace-pill"
-        style={{
-          justifyContent: collapsed ? 'center' : 'flex-start',
-        }}
-      >
+      <div className="workspace-pill">
 
         <span className="workspace-avatar">
           AI
@@ -471,12 +457,6 @@ function Sidebar({
               className={
                 view === id ? 'active' : ''
               }
-              style={{
-                justifyContent: collapsed
-                  ? 'center'
-                  : 'flex-start',
-                gap: collapsed ? 0 : 12,
-              }}
               onClick={() => {
                 setView(id)
                 setMobileOpen(false)
@@ -485,9 +465,7 @@ function Sidebar({
 
               <Icon size={18} />
 
-              {!collapsed && (
-                <span>{label}</span>
-              )}
+              <span>{label}</span>
 
               {id === 'new' &&
                 !collapsed && (
@@ -507,12 +485,6 @@ function Sidebar({
 
         <button
           className="collapse-btn"
-          style={{
-            justifyContent: collapsed
-              ? 'center'
-              : 'flex-start',
-            gap: collapsed ? 0 : 12,
-          }}
           onClick={() =>
             setCollapsed(!collapsed)
           }
@@ -1479,7 +1451,6 @@ function Dashboard({
             Intelligence workspace
           </span>
 
-          {/* Constant product branding — independent of the current page title. */}
           <h2>
             AI-powered
             <br />
