@@ -33,7 +33,7 @@ Base.metadata.create_all(bind=engine)
 # ---------------------------------------------------------
 
 # Allow the frontend to communicate with the FastAPI backend.
-# Local development and the deployed Vercel frontend are allowed.
+# Local development and Vercel deployments are allowed.
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +49,12 @@ app.add_middleware(
         # Production Vercel frontend
         "https://agentic-ai-business-research.vercel.app"
     ],
+
+    # Allow Vercel preview/deployment URLs.
+    # Example:
+    # https://agentic-ai-business-research-xxxxx.vercel.app
+    allow_origin_regex=r"https://.*\.vercel\.app",
+
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
