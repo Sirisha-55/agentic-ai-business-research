@@ -198,7 +198,8 @@ const navItems: {
 
 const agents = [
   {
-    name: 'Planner',
+    // Must match the agent name emitted by the backend exactly.
+    name: 'Planner Agent',
     description:
       'Breaks the research question into focused workstreams.',
     icon: Target,
@@ -675,6 +676,109 @@ function Pipeline({
   return (
     <section className="section pipeline-section">
 
+      <style jsx global>{`
+        .pl-flow {
+          --pl-line: rgba(124, 108, 255, 0.7);
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          width: 100%;
+        }
+
+        .pl-single {
+          width: min(100%, 340px);
+          margin: 0 auto;
+        }
+
+        .pl-three {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .pl-cell {
+          min-width: 0;
+          padding: 0 8px;
+        }
+
+        .pl-cell > * {
+          height: 100%;
+        }
+
+        .pl-fan {
+          position: relative;
+          height: 44px;
+        }
+
+        .pl-fan svg {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+        }
+
+        .pl-fan path {
+          fill: none;
+          stroke: var(--pl-line);
+          stroke-width: 2px;
+          vector-effect: non-scaling-stroke;
+        }
+
+        .pl-fan i {
+          position: absolute;
+          bottom: 0;
+          width: 0;
+          height: 0;
+          transform: translateX(-50%);
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid var(--pl-line);
+        }
+
+        .pl-vline {
+          position: relative;
+          width: 2px;
+          height: 30px;
+          margin: 0 auto;
+          background: var(--pl-line);
+        }
+
+        .pl-vline::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          bottom: -1px;
+          transform: translateX(-50%);
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid var(--pl-line);
+        }
+
+        .pl-mobile-only {
+          display: none;
+        }
+
+        @media (max-width: 640px) {
+          .pl-three {
+            grid-template-columns: 1fr;
+            row-gap: 10px;
+          }
+
+          .pl-cell {
+            padding: 0;
+          }
+
+          .pl-fan {
+            display: none;
+          }
+
+          .pl-mobile-only {
+            display: block;
+          }
+        }
+      `}</style>
+
       <div className="section-heading">
 
         <div>
@@ -705,70 +809,71 @@ function Pipeline({
       </div>
 
 
-      <div className="pipeline">
+      <div className="pl-flow">
 
-        <div className="pipeline-row single">
-          <AgentCard
-            agent={agents[0]}
-            index={0}
-            compact
-          />
+        {/* 1. Planner */}
+        <div className="pl-single">
+          <AgentCard agent={agents[0]} index={0} compact />
         </div>
 
-        <div className="connector vertical" />
+        {/* Planner splits into three branches */}
+        <div className="pl-fan" aria-hidden="true">
+          <svg
+            viewBox="0 0 100 44"
+            preserveAspectRatio="none"
+            focusable="false"
+          >
+            <path d="M50 0 V22 M16.6667 22 H83.3333 M16.6667 22 V44 M50 22 V44 M83.3333 22 V44" />
+          </svg>
+          <i style={{ left: '16.6667%' }} />
+          <i style={{ left: '50%' }} />
+          <i style={{ left: '83.3333%' }} />
+        </div>
+        <div className="pl-vline pl-mobile-only" aria-hidden="true" />
 
-        <div className="pipeline-row three">
-
-          {agents
-            .slice(1, 4)
-            .map((agent, i) => (
-              <AgentCard
-                key={agent.name}
-                agent={agent}
-                index={i + 1}
-                compact
-              />
-            ))}
-
+        {/* 2. Market, Company, Competitor */}
+        <div className="pl-three">
+          {agents.slice(1, 4).map((agent, i) => (
+            <div key={agent.name} className="pl-cell">
+              <AgentCard agent={agent} index={i + 1} compact />
+            </div>
+          ))}
         </div>
 
+        {/* The three branches merge into Analysis */}
+        <div className="pl-fan" aria-hidden="true">
+          <svg
+            viewBox="0 0 100 44"
+            preserveAspectRatio="none"
+            focusable="false"
+          >
+            <path d="M16.6667 0 V22 M50 0 V22 M83.3333 0 V22 M16.6667 22 H83.3333 M50 22 V44" />
+          </svg>
+          <i style={{ left: '50%' }} />
+        </div>
+        <div className="pl-vline pl-mobile-only" aria-hidden="true" />
 
-        <div className="merge-line">
-          <span />
-          <span />
-          <span />
+        {/* 3. Analysis → Writer → Reviewer → Final report */}
+        <div className="pl-single">
+          <AgentCard agent={agents[4]} index={4} compact />
         </div>
 
-        <div className="connector vertical" />
+        <div className="pl-vline" aria-hidden="true" />
 
-
-        <div className="pipeline-row single">
-
-          <AgentCard
-            agent={agents[4]}
-            index={4}
-            compact
-          />
-
+        <div className="pl-single">
+          <AgentCard agent={agents[5]} index={5} compact />
         </div>
 
+        <div className="pl-vline" aria-hidden="true" />
 
-        <div className="connector vertical" />
+        <div className="pl-single">
+          <AgentCard agent={agents[6]} index={6} compact />
+        </div>
 
+        <div className="pl-vline" aria-hidden="true" />
 
-        <div className="pipeline-row two">
-
-          {agents
-            .slice(5)
-            .map((agent, i) => (
-              <AgentCard
-                key={agent.name}
-                agent={agent}
-                index={i + 5}
-                compact
-              />
-            ))}
-
+        <div className="pl-single">
+          <AgentCard agent={agents[7]} index={7} compact />
         </div>
 
       </div>
@@ -1169,6 +1274,12 @@ export default function Page() {
               ...current.filter(existing => String(existing.id) !== String(report.id)),
             ])
             setSelectedReport(report)
+
+            // Clear the box, but only if it still holds the question just submitted.
+            setQuery(current =>
+              current.trim() === researchQuery ? '' : current
+            )
+
             setView('reports')
             continue
           }
@@ -1239,10 +1350,56 @@ export default function Page() {
         ) {
           setSelectedReport(null)
         }
+
+        return true
       } catch {
         setError(
           'Unable to delete this report. Please try again.'
         )
+
+        return false
+      }
+    }
+
+
+  // -------------------------------------------------------
+  // RENAME REPORT
+  // -------------------------------------------------------
+
+  const renameReport =
+    async (
+      id: string,
+      newTitle: string
+    ): Promise<boolean> => {
+
+      const reportId = String(id)
+      const title = newTitle.trim()
+
+      if (!reportId || !title) return false
+
+      // Update the screen immediately.
+      setReports(current =>
+        current.map(report =>
+          String(
+            report.id ??
+            (report as any).report_id ??
+            ''
+          ) === reportId
+            ? { ...report, user_query: title, query: title }
+            : report
+        )
+      )
+
+      // Then save to the backend (see the PATCH route in the notes).
+      try {
+        await axios.patch(
+          `${API_BASE}/reports/${reportId}`,
+          { user_query: title }
+        )
+
+        return true
+      } catch {
+        return false
       }
     }
 
@@ -1340,6 +1497,8 @@ export default function Page() {
           reports={reports}
           selectedReport={selectedReport}
           setSelectedReport={setSelectedReport}
+          onRename={renameReport}
+          onDelete={deleteReport}
         />
       )
     }
@@ -2144,9 +2303,23 @@ function NewResearch({
         </div>
       </div>
 
-      <div className="research-note">
-        <CheckCircle2 size={15} />
-        <span>
+      <div
+        className="research-note"
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+        }}
+      >
+        <CheckCircle2
+          size={15}
+          style={{
+            color: '#22c55e',
+            flex: '0 0 auto',
+            marginTop: 2,
+          }}
+        />
+        <span style={{ fontSize: 13, lineHeight: 1.5 }}>
           Your question is processed through the Planner,
           research, Analysis, Writer and Reviewer stages.
         </span>
@@ -2200,23 +2373,14 @@ function Workspace({
     return 'Waiting'
   }
 
-  const completedCount =
-    Object.values(
-      agentProgress
-    ).filter(
-      item =>
-        item.status ===
-        'completed'
-    ).length
+  // Count only the 8 real agents so a stray event name can never push this past 8/8.
+  const completedCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'completed'
+  ).length
 
-  const activeCount =
-    Object.values(
-      agentProgress
-    ).filter(
-      item =>
-        item.status ===
-        'running'
-    ).length
+  const activeCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'running'
+  ).length
 
   return (
     <div className="view-enter">
@@ -2696,13 +2860,35 @@ function Reports({
   reports,
   selectedReport,
   setSelectedReport,
+  onRename,
+  onDelete,
 }: {
   reports: Report[]
   selectedReport: Report | null
   setSelectedReport: (
     r: Report | null
   ) => void
+  onRename: (
+    id: string,
+    title: string
+  ) => Promise<boolean>
+  onDelete: (id: string) => Promise<boolean>
 }) {
+
+  // Short message shown above the grid (rename/delete problems).
+  const [notice, setNotice] =
+    useState('')
+
+  useEffect(() => {
+    if (!notice) return
+
+    const timer = window.setTimeout(
+      () => setNotice(''),
+      4500
+    )
+
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   if (!selectedReport) {
 
@@ -2734,6 +2920,14 @@ function Reports({
         </div>
 
 
+        {notice && (
+          <div className="error-banner">
+            <AlertCircle size={17} />
+            {notice}
+          </div>
+        )}
+
+
         {reports.length ? (
 
           <div className="report-grid">
@@ -2741,47 +2935,20 @@ function Reports({
             {reports.map(
               (report, i) => (
 
-                <button
-                  className="report-tile"
+                <ReportTile
                   key={
                     report.id || i
                   }
-                  onClick={() =>
+                  report={report}
+                  onOpen={() =>
                     setSelectedReport(
                       report
                     )
                   }
-                >
-
-                  <div className="report-tile-top">
-
-                    <span className="row-icon">
-                      <FileText size={17} />
-                    </span>
-
-                    <MoreHorizontal size={17} />
-
-                  </div>
-
-                  <h3>
-                    {report.user_query ||
-                      report.query ||
-                      'Untitled research'}
-                  </h3>
-
-                  <p>
-                    {formatReportDate(report.created_at)}
-                  </p>
-
-                  <span className="report-tile-link">
-
-                    Open report
-
-                    <ArrowUpRight size={14} />
-
-                  </span>
-
-                </button>
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onNotice={setNotice}
+                />
 
               )
             )}
@@ -2809,6 +2976,381 @@ function Reports({
         setSelectedReport(null)
       }
     />
+  )
+}
+
+
+// ---------------------------------------------------------
+// REPORT TILE (with working 3-dot menu: Edit / Delete)
+// ---------------------------------------------------------
+
+function ReportTile({
+  report,
+  onOpen,
+  onRename,
+  onDelete,
+  onNotice,
+}: {
+  report: Report
+  onOpen: () => void
+  onRename: (
+    id: string,
+    title: string
+  ) => Promise<boolean>
+  onDelete: (id: string) => Promise<boolean>
+  onNotice: (message: string) => void
+}) {
+
+  const [menuOpen, setMenuOpen] =
+    useState(false)
+
+  const [editing, setEditing] =
+    useState(false)
+
+  const [draft, setDraft] =
+    useState('')
+
+  const [busy, setBusy] =
+    useState(false)
+
+  const wrapRef =
+    useRef<HTMLDivElement | null>(null)
+
+  const reportId = String(
+    report.id ??
+    (report as any).report_id ??
+    ''
+  )
+
+  const title =
+    report.user_query ||
+    report.query ||
+    'Untitled research'
+
+  // Close the menu on outside click or Escape.
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOpen])
+
+  const startEdit = () => {
+    setMenuOpen(false)
+
+    if (!reportId) {
+      onNotice('This report has no ID, so it cannot be edited.')
+      return
+    }
+
+    setDraft(
+      title === 'Untitled research' ? '' : title
+    )
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    if (busy) return
+
+    const next = draft.trim()
+
+    if (!next) {
+      onNotice('The title cannot be empty.')
+      return
+    }
+
+    if (next === title) {
+      setEditing(false)
+      return
+    }
+
+    setBusy(true)
+    const saved = await onRename(reportId, next)
+    setBusy(false)
+    setEditing(false)
+
+    if (!saved) {
+      onNotice(
+        'Renamed on screen, but the change could not be saved to the server.'
+      )
+    }
+  }
+
+  const handleDelete = async () => {
+    setMenuOpen(false)
+
+    if (!reportId) {
+      onNotice('This report has no ID, so it cannot be deleted.')
+      return
+    }
+
+    if (
+      !window.confirm(
+        'Delete this report? This cannot be undone.'
+      )
+    ) {
+      return
+    }
+
+    const deleted = await onDelete(reportId)
+
+    if (!deleted) {
+      onNotice(
+        'Unable to delete this report. Please try again.'
+      )
+    }
+  }
+
+  if (editing) {
+    return (
+      <div
+        className="report-tile"
+        style={{ cursor: 'default' }}
+      >
+
+        <div className="report-tile-top">
+
+          <span className="row-icon">
+            <FileText size={17} />
+          </span>
+
+        </div>
+
+        <input
+          autoFocus
+          value={draft}
+          maxLength={1000}
+          aria-label="Report title"
+          onChange={event =>
+            setDraft(event.target.value)
+          }
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void saveEdit()
+            }
+
+            if (event.key === 'Escape') {
+              setEditing(false)
+            }
+          }}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '9px 11px',
+            marginTop: 14,
+            border: '1px solid rgba(127, 127, 127, 0.4)',
+            borderRadius: 8,
+            background: 'rgba(127, 127, 127, 0.10)',
+            color: 'inherit',
+            font: 'inherit',
+            fontSize: 14,
+            outline: 'none',
+          }}
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            marginTop: 12,
+          }}
+        >
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void saveEdit()}
+            style={{
+              padding: '7px 14px',
+              border: 0,
+              borderRadius: 8,
+              background: '#6d5efc',
+              color: '#ffffff',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            {busy ? 'Saving...' : 'Save'}
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setEditing(false)}
+            style={{
+              padding: '7px 14px',
+              border: '1px solid rgba(127, 127, 127, 0.35)',
+              borderRadius: 8,
+              background: 'transparent',
+              color: 'inherit',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+
+        </div>
+
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        zIndex: menuOpen ? 30 : 1,
+      }}
+    >
+
+      <button
+        type="button"
+        className="report-tile"
+        style={{ flex: 1, minWidth: 0 }}
+        onClick={onOpen}
+      >
+
+        <div className="report-tile-top">
+
+          <span className="row-icon">
+            <FileText size={17} />
+          </span>
+
+        </div>
+
+        <h3>
+          {title}
+        </h3>
+
+        <p>
+          {formatReportDate(report.created_at)}
+        </p>
+
+        <span className="report-tile-link">
+
+          Open report
+
+          <ArrowUpRight size={14} />
+
+        </span>
+
+      </button>
+
+
+      <div
+        style={{
+          position: 'absolute',
+          top: 22,
+          right: 20,
+        }}
+      >
+
+        <button
+          type="button"
+          className="row-more"
+          title="More actions"
+          aria-label="More actions"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          style={{ cursor: 'pointer' }}
+          onClick={event => {
+            event.stopPropagation()
+            setMenuOpen(current => !current)
+          }}
+        >
+          <MoreHorizontal size={17} />
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 'calc(100% + 6px)',
+              zIndex: 50,
+              minWidth: 145,
+              padding: 5,
+              border: '1px solid rgba(127, 127, 127, 0.22)',
+              borderRadius: 10,
+              background: '#111722',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.28)',
+            }}
+          >
+
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                display: 'block',
+                width: '100%',
+                border: 0,
+                borderRadius: 7,
+                background: 'transparent',
+                color: 'inherit',
+                padding: '8px 10px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              onClick={startEdit}
+            >
+              Edit
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                display: 'block',
+                width: '100%',
+                border: 0,
+                borderRadius: 7,
+                background: 'transparent',
+                color: '#ff7777',
+                padding: '8px 10px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              onClick={() => void handleDelete()}
+            >
+              Delete
+            </button>
+
+          </div>
+        )}
+
+      </div>
+
+    </div>
   )
 }
 
@@ -3991,6 +4533,10 @@ function History({
 
 function Architecture() {
 
+  // The three parallel agents stay hidden until the arrow is clicked.
+  const [parallelOpen, setParallelOpen] =
+    useState(false)
+
   const stacks = [
     {
       title: 'React frontend',
@@ -4022,6 +4568,264 @@ function Architecture() {
 
   return (
     <div className="view-enter">
+
+      <style jsx global>{`
+        .ar-stack-row,
+        .ar-chain {
+          --ar-line: rgba(124, 108, 255, 0.7);
+        }
+
+        /* ---------- top row: React -> FastAPI -> LangGraph ---------- */
+
+        .ar-stack-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .ar-stack-step {
+          display: flex;
+          align-items: center;
+        }
+
+        .ar-stack-item {
+          width: 168px;
+        }
+
+        .ar-stack-item .stack-node {
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .ar-hlink {
+          position: relative;
+          flex: 0 0 auto;
+          width: 34px;
+          height: 2px;
+          background: var(--ar-line);
+        }
+
+        .ar-hlink::after {
+          content: '';
+          position: absolute;
+          right: -1px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-top: 5px solid transparent;
+          border-bottom: 5px solid transparent;
+          border-left: 7px solid var(--ar-line);
+        }
+
+        @media (max-width: 1000px) {
+          .ar-stack-row,
+          .ar-stack-step {
+            flex-direction: column;
+          }
+
+          .ar-hlink {
+            width: 2px;
+            height: 24px;
+          }
+
+          .ar-hlink::after {
+            right: auto;
+            top: auto;
+            left: 50%;
+            bottom: -1px;
+            transform: translateX(-50%);
+            border-top: 7px solid var(--ar-line);
+            border-bottom: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+          }
+        }
+
+        /* ---------- orchestration chain ---------- */
+
+        .ar-chain {
+          display: flex;
+          flex-direction: column;
+          width: 360px;
+          max-width: 100%;
+          margin: 0 auto;
+        }
+
+        .ar-chain-step {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .ar-link {
+          position: relative;
+          width: 2px;
+          height: 26px;
+          margin: 0 auto;
+          background: var(--ar-line);
+        }
+
+        .ar-link::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          bottom: -1px;
+          transform: translateX(-50%);
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid var(--ar-line);
+        }
+
+        /* ---------- hover: tiles grow with a springy easing ---------- */
+
+        .ar-stack-row .stack-node.ar-grow,
+        .ar-chain .arch-node.ar-grow {
+          position: relative;
+          transition:
+            transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+            box-shadow 0.3s ease,
+            border-color 0.3s ease;
+          will-change: transform;
+        }
+
+        .ar-stack-row .stack-node.ar-grow:hover,
+        .ar-chain .arch-node.ar-grow:hover {
+          transform: scale(1.05);
+          z-index: 3;
+          border-color: rgba(124, 108, 255, 0.75);
+          box-shadow: 0 12px 32px rgba(124, 108, 255, 0.22);
+        }
+
+        /* ---------- arrow button that reveals the 3 hidden agents ---------- */
+
+        .ar-toggle {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 30px;
+          height: 30px;
+          display: grid;
+          place-items: center;
+          padding: 0;
+          border-radius: 8px;
+          border: 1px solid rgba(124, 108, 255, 0.45);
+          background: rgba(124, 108, 255, 0.14);
+          color: #a79dff;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+
+        .ar-toggle:hover {
+          background: rgba(124, 108, 255, 0.28);
+        }
+
+        .ar-toggle svg {
+          transition: transform 0.35s ease;
+        }
+
+        .ar-toggle[aria-expanded='true'] svg {
+          transform: rotate(180deg);
+        }
+
+        /* ---------- collapsible branch ---------- */
+
+        .ar-branch {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ar-branch.open {
+          grid-template-rows: 1fr;
+        }
+
+        .ar-branch-inner {
+          min-height: 0;
+          overflow: hidden;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .ar-branch.open .ar-branch-inner {
+          opacity: 1;
+        }
+
+        .ar-fan {
+          position: relative;
+          height: 40px;
+        }
+
+        .ar-fan svg {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+        }
+
+        .ar-fan path {
+          fill: none;
+          stroke: var(--ar-line);
+          stroke-width: 2px;
+          vector-effect: non-scaling-stroke;
+        }
+
+        .ar-fan i {
+          position: absolute;
+          bottom: 0;
+          width: 0;
+          height: 0;
+          transform: translateX(-50%);
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid var(--ar-line);
+        }
+
+        .ar-chips {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .ar-chip-cell {
+          min-width: 0;
+          padding: 0 6px;
+        }
+
+        .ar-chip {
+          text-align: center;
+          padding: 8px 4px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #a79dff;
+          background: rgba(124, 108, 255, 0.16);
+          border: 1px solid rgba(124, 108, 255, 0.3);
+          transform: translateY(-6px);
+          transition:
+            transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+            box-shadow 0.3s ease;
+        }
+
+        .ar-branch.open .ar-chip {
+          transform: none;
+        }
+
+        .ar-branch.open .ar-chip:hover {
+          transform: scale(1.08);
+          box-shadow: 0 8px 20px rgba(124, 108, 255, 0.25);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ar-stack-row .stack-node.ar-grow,
+          .ar-chain .arch-node.ar-grow,
+          .ar-toggle svg,
+          .ar-branch,
+          .ar-branch-inner,
+          .ar-chip {
+            transition: none !important;
+          }
+        }
+      `}</style>
 
       <div className="page-intro">
 
@@ -4058,7 +4862,8 @@ function Architecture() {
 
       <div className="architecture-canvas">
 
-        <div className="stack-row">
+        {/* React -> FastAPI -> LangGraph, joined by lines with arrowheads */}
+        <div className="ar-stack-row">
 
           {stacks.map(
             (stack, i) => {
@@ -4069,26 +4874,34 @@ function Architecture() {
               return (
                 <div
                   key={stack.title}
-                  className="stack-node"
+                  className="ar-stack-step"
                 >
 
-                  <span className="stack-icon">
-                    <StackIcon size={20} />
-                  </span>
+                  <div className="ar-stack-item">
 
-                  <strong>
-                    {stack.title}
-                  </strong>
+                    <div className="stack-node ar-grow">
 
-                  <small>
-                    {stack.sub}
-                  </small>
+                      <span className="stack-icon">
+                        <StackIcon size={20} />
+                      </span>
+
+                      <strong>
+                        {stack.title}
+                      </strong>
+
+                      <small>
+                        {stack.sub}
+                      </small>
+
+                    </div>
+
+                  </div>
 
                   {i <
                     stacks.length - 1 && (
-                    <ChevronDown
-                      className="stack-arrow"
-                      size={17}
+                    <div
+                      className="ar-hlink"
+                      aria-hidden="true"
                     />
                   )}
 
@@ -4110,63 +4923,147 @@ function Architecture() {
           </div>
 
 
-          {nodes.map(
-            (node, i) => (
+          <div className="ar-chain">
 
-              <div
-                key={node}
-                className={`arch-node ${
-                  i === 1
-                    ? 'parallel-node'
-                    : ''
-                }`}
-              >
+            {nodes.map(
+              (node, i) => {
 
-                <span>
-                  {String(i + 1).padStart(
-                    2,
-                    '0'
-                  )}
-                </span>
+                const isParallel = i === 1
 
-                <strong>
-                  {node}
-                </strong>
+                return (
+                  <div
+                    key={node}
+                    className="ar-chain-step"
+                  >
+
+                    <div
+                      className={`arch-node ar-grow ${
+                        isParallel
+                          ? 'parallel-node'
+                          : ''
+                      }`}
+                      style={
+                        isParallel
+                          ? { paddingRight: 52 }
+                          : undefined
+                      }
+                    >
+
+                      <span>
+                        {String(i + 1).padStart(
+                          2,
+                          '0'
+                        )}
+                      </span>
+
+                      <strong>
+                        {node}
+                      </strong>
+
+                      {isParallel && (
+                        <button
+                          type="button"
+                          className="ar-toggle"
+                          aria-expanded={parallelOpen}
+                          aria-controls="ar-parallel-branch"
+                          aria-label={
+                            parallelOpen
+                              ? 'Hide parallel agents'
+                              : 'Show parallel agents'
+                          }
+                          title={
+                            parallelOpen
+                              ? 'Hide parallel agents'
+                              : 'Show parallel agents'
+                          }
+                          onClick={() =>
+                            setParallelOpen(open => !open)
+                          }
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                      )}
+
+                    </div>
 
 
-                {i === 1 && (
+                    {isParallel && (
+                      <div
+                        id="ar-parallel-branch"
+                        className={`ar-branch ${
+                          parallelOpen ? 'open' : ''
+                        }`}
+                        aria-hidden={!parallelOpen}
+                      >
 
-                  <div className="parallel-agents">
+                        <div className="ar-branch-inner">
 
-                    <i>
-                      Market
-                    </i>
+                          {/* branches out of the Parallel tile */}
+                          <div
+                            className="ar-fan"
+                            aria-hidden="true"
+                          >
+                            <svg
+                              viewBox="0 0 100 40"
+                              preserveAspectRatio="none"
+                              focusable="false"
+                            >
+                              <path d="M50 0 V20 M16.6667 20 H83.3333 M16.6667 20 V40 M50 20 V40 M83.3333 20 V40" />
+                            </svg>
+                            <i style={{ left: '16.6667%' }} />
+                            <i style={{ left: '50%' }} />
+                            <i style={{ left: '83.3333%' }} />
+                          </div>
 
-                    <i>
-                      Company
-                    </i>
+                          <div className="ar-chips">
+                            {['Market', 'Company', 'Competitor'].map(
+                              name => (
+                                <div
+                                  key={name}
+                                  className="ar-chip-cell"
+                                >
+                                  <div className="ar-chip">
+                                    {name}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
 
-                    <i>
-                      Competitor
-                    </i>
+                          {/* the three branches merge back together */}
+                          <div
+                            className="ar-fan"
+                            aria-hidden="true"
+                          >
+                            <svg
+                              viewBox="0 0 100 40"
+                              preserveAspectRatio="none"
+                              focusable="false"
+                            >
+                              <path d="M16.6667 0 V20 M50 0 V20 M83.3333 0 V20 M16.6667 20 H83.3333 M50 20 V40" />
+                            </svg>
+                          </div>
+
+                        </div>
+
+                      </div>
+                    )}
+
+
+                    {i <
+                      nodes.length - 1 && (
+                      <div
+                        className="ar-link"
+                        aria-hidden="true"
+                      />
+                    )}
 
                   </div>
+                )
+              }
+            )}
 
-                )}
-
-
-                {i <
-                  nodes.length - 1 && (
-                  <ChevronDown
-                    className="flow-arrow"
-                    size={17}
-                  />
-                )}
-
-              </div>
-
-            )
-          )}
+          </div>
 
         </div>
 
