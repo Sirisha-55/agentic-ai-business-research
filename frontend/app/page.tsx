@@ -603,6 +603,7 @@ function Topbar({
   onHome,
   onBack,
   canGoBack,
+  systemOnline,
 }: {
   title: string
   theme: Theme
@@ -611,6 +612,7 @@ function Topbar({
   onHome: () => void
   onBack: () => void
   canGoBack: boolean
+  systemOnline: boolean
 }) {
   return (
     <header className="topbar reference-topbar">
@@ -680,6 +682,17 @@ function Topbar({
           box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.10);
         }
 
+        .system-online-pill.system-offline {
+          color: #9aa4b7;
+          background: rgba(127, 127, 127, 0.07);
+          border-color: rgba(127, 127, 127, 0.22);
+        }
+
+        .system-online-pill.system-offline .online-dot {
+          background: #94a3b8;
+          box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.09);
+        }
+
         @media (max-width: 760px) {
           .reference-topbar {
             min-height: 74px;
@@ -703,6 +716,9 @@ function Topbar({
 
           .reference-topbar .reference-page-title {
             font-size: 19px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 44vw;
           }
 
           .system-online-pill {
@@ -772,9 +788,12 @@ function Topbar({
       </div>
 
       <div className="topbar-actions">
-        <span className="system-online-pill" aria-label="System online">
+        <span
+          className={`system-online-pill ${systemOnline ? '' : 'system-offline'}`}
+          aria-label={systemOnline ? 'System online' : 'System unavailable'}
+        >
           <span className="online-dot" />
-          System Online
+          {systemOnline ? 'System Online' : 'System Unavailable'}
         </span>
       </div>
     </header>
@@ -1201,6 +1220,24 @@ export default function Page() {
   const [mobileOpen, setMobileOpen] =
     useState(false)
 
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileOpen])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mobileOpen])
+
   const [reports, setReports] =
     useState<Report[]>([])
 
@@ -1346,6 +1383,19 @@ export default function Page() {
 
 
 // -------------------------------------------------------
+  // SYSTEM STATUS
+  // -------------------------------------------------------
+  // Idle state => System Unavailable. While research is executing
+  // or an agent is running => System Online.
+  const hasRunningAgent = Object.values(agentProgress).some(
+    progress => progress.status === 'running'
+  )
+
+  const systemOnline =
+    !backendOffline &&
+    (researching || hasRunningAgent)
+
+  // -------------------------------------------------------
   // THEME
   // -------------------------------------------------------
 
@@ -1943,6 +1993,11 @@ export default function Page() {
           color: #475569 !important;
           border-color: #dfe4ee !important;
         }
+        .theme-light .system-online-pill.system-offline {
+          background: #f1f5f9 !important;
+          color: #64748b !important;
+          border-color: #cbd5e1 !important;
+        }
         .theme-light .report-nav a {
           color: #647089;
         }
@@ -2052,6 +2107,56 @@ export default function Page() {
         }
         html.light .content p { color: #34435f; }
         html.light .topbar-brand em, html.light .ar-toggle, html.light .ar-chip { color: #5b4bd6 !important; }
+
+        /* -------------------------------------------------------
+           MOBILE NAVIGATION DRAWER
+           ------------------------------------------------------- */
+        .mobile-scrim { display: none; }
+        .mobile-close { display: none; }
+
+        @media (max-width: 1099px) {
+          .app-shell aside.sidebar {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            width: min(320px, 88vw) !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            z-index: 70 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            transform: translateX(-105%);
+            transition: transform .25s ease, box-shadow .25s ease;
+            box-shadow: none;
+          }
+
+          .app-shell aside.sidebar.mobile-open {
+            transform: translateX(0);
+            box-shadow: 18px 0 45px rgba(0,0,0,.28);
+          }
+
+          .mobile-close { display: grid !important; }
+
+          .mobile-scrim {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 65;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            background: rgba(0,0,0,.52);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+          }
+        }
+
+        @media (max-width: 480px) {
+          .app-shell aside.sidebar {
+            width: min(300px, 88vw) !important;
+          }
+        }
 
         /* responsive */
         .hero-actions { flex-wrap: wrap; }
@@ -2341,6 +2446,7 @@ export default function Page() {
           }
           onBack={goBack}
           canGoBack={canGoBack}
+          systemOnline={systemOnline}
           onHome={() => {
             setView('dashboard')
             setMobileOpen(false)
