@@ -7,21 +7,9 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 
 # Environment variables
-.env
-.env.local
 .env*.local
 
-# Frontend
-node_modules/
-.next/
-
-# Python backend
-backend/venv/
-backend/__pycache__/
-backend/**/*.pyc
-
-# Python environment files
-backend/.env
-
 # Common ignores
+node_modules
+.next/
 .DS_Store
