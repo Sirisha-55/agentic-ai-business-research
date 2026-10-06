@@ -444,9 +444,11 @@ function Sidebar({
         }
 
         .theme-switcher {
-          display: inline-flex;
+          display: flex;
+          flex-direction: column;
           align-items: center;
           gap: 3px;
+          width: 36px;
           padding: 3px;
           border: 1px solid rgba(127,127,127,.22);
           border-radius: 11px;
