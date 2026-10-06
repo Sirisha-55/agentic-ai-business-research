@@ -544,29 +544,138 @@ function Topbar({
   onBack: () => void
   canGoBack: boolean
 }) {
-  return (
-    <header className="topbar">
+  // Keep the theme props for backwards compatibility with the existing
+  // page state, but use the cleaner reference-style header.
+  void theme
+  void setTheme
 
+  return (
+    <header className="topbar reference-topbar">
       <style jsx global>{`
-        .topbar-brand:hover {
-          opacity: 0.85;
+        .reference-topbar {
+          min-height: 78px;
+          padding: 14px 24px;
+          border-bottom: 1px solid rgba(127, 127, 127, 0.16);
+          background: rgba(8, 10, 16, 0.88);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
         }
 
-        .topbar-brand:focus-visible {
-          outline: 2px solid rgba(124, 108, 255, 0.8);
-          outline-offset: 4px;
-          border-radius: 6px;
+        .reference-topbar .topbar-title {
+          min-width: 0;
+          gap: 14px;
+        }
+
+        .reference-topbar .topbar-context {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .reference-topbar .reference-eyebrow {
+          color: #9aa4ba;
+          font-size: 13px;
+          line-height: 1.2;
+          margin-bottom: 3px;
+        }
+
+        .reference-topbar .reference-page-title {
+          margin: 0;
+          color: #f4f6fb;
+          font-size: clamp(18px, 2vw, 24px);
+          line-height: 1.15;
+          font-weight: 750;
+          letter-spacing: -0.02em;
+          white-space: nowrap;
+        }
+
+        .reference-topbar .topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .system-online-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 9px 15px;
+          border: 1px solid rgba(127, 127, 127, 0.22);
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.035);
+          color: #cbd2df;
+          font-size: 14px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .system-online-pill .online-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #22c55e;
+          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.10);
+        }
+
+        @media (max-width: 760px) {
+          .reference-topbar {
+            min-height: 74px;
+            padding: 13px 16px;
+          }
+
+          .reference-topbar .topbar-back {
+            display: none !important;
+          }
+
+          .reference-topbar .mobile-menu {
+            display: grid !important;
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+          }
+
+          .reference-topbar .reference-eyebrow {
+            font-size: 12px;
+          }
+
+          .reference-topbar .reference-page-title {
+            font-size: 19px;
+          }
+
+          .system-online-pill {
+            padding: 8px 11px;
+            font-size: 13px;
+          }
+
+          .system-online-pill .online-dot {
+            width: 8px;
+            height: 8px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .system-online-pill {
+            font-size: 0;
+            width: 38px;
+            height: 38px;
+            justify-content: center;
+            padding: 0;
+          }
+
+          .system-online-pill .online-dot {
+            width: 9px;
+            height: 9px;
+          }
         }
       `}</style>
 
       <div className="topbar-title">
-
         <button
           className="icon-btn mobile-menu"
           onClick={onMenu}
           aria-label="Open navigation"
         >
-          <Menu size={20} />
+          <Menu size={22} />
         </button>
 
         <button
@@ -578,59 +687,33 @@ function Topbar({
           <ArrowLeft size={18} />
         </button>
 
-        <div>
-          <span className="eyebrow">
-            Workspace / {title}
-          </span>
-
-          {/* Product name: always visible, click to go home. */}
-          <h1>
-            <button
-              type="button"
-              className="topbar-brand"
-              onClick={onHome}
-              title="Go to home"
-              aria-label="AI-powered business research, go to home"
-              style={{
-                display: 'block',
-                margin: 0,
-                padding: 0,
-                border: 0,
-                background: 'none',
-                color: 'inherit',
-                font: 'inherit',
-                fontSize: 'clamp(15px, 4vw, 26px)',
-                lineHeight: 1.2,
-                textAlign: 'left',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-              }}
-            >
-              AI-powered{' '}
-              <em
-                style={{
-                  fontStyle: 'normal',
-                  color: '#a79dff',
-                }}
-              >
-                Business Research<span className="brand-dot">.</span>
-              </em>
-            </button>
+        <button
+          type="button"
+          className="topbar-context"
+          onClick={onHome}
+          title="Go to dashboard"
+          aria-label="Go to dashboard"
+          style={{
+            border: 0,
+            background: 'transparent',
+            padding: 0,
+            textAlign: 'left',
+            cursor: 'pointer',
+          }}
+        >
+          <span className="reference-eyebrow">Research</span>
+          <h1 className="reference-page-title">
+            {title === 'Research workspace' ? 'Agent Activity' : title}
           </h1>
-        </div>
-
+        </button>
       </div>
 
       <div className="topbar-actions">
-
-        {/* Clean topbar: only theme modes are shown here. */}
-        <ThemeSwitcher
-          theme={theme}
-          setTheme={setTheme}
-        />
-
+        <span className="system-online-pill" aria-label="System online">
+          <span className="online-dot" />
+          System Online
+        </span>
       </div>
-
     </header>
   )
 }
@@ -1875,6 +1958,86 @@ export default function Page() {
           font-size: inherit !important; padding-left: 2px;
         }
         .report-section-body .report-markdown-block li::marker { color: var(--accent-red); }
+
+        /* Reference-style mobile shell: no horizontal overflow and compact page gutters. */
+        .workspace-shell .content {
+          padding-top: 0 !important;
+        }
+
+        @media (max-width: 760px) {
+          html, body {
+            overflow-x: hidden !important;
+          }
+
+          .main-shell {
+            min-width: 0 !important;
+          }
+
+          .content {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 16px 12px 28px !important;
+          }
+
+          .page-intro {
+            gap: 10px !important;
+          }
+
+          .page-intro h2 {
+            font-size: 29px !important;
+            line-height: 1.1 !important;
+          }
+
+          .page-intro p {
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+          }
+
+          .hero {
+            border-radius: 18px !important;
+            padding: 22px 18px !important;
+          }
+
+          .stat-card, .query-card, .table-card, .report-tile, .aside-card {
+            border-radius: 16px !important;
+          }
+
+          .history-table {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .report-viewer {
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          .report-toolbar {
+            padding: 7px 0 !important;
+          }
+
+          .report-toolbar .back-btn {
+            max-width: 55%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .report-content h2 {
+            font-size: clamp(30px, 9vw, 48px) !important;
+            line-height: 1.06 !important;
+            letter-spacing: -0.035em !important;
+          }
+
+          .report-nav {
+            margin-bottom: 4px;
+            border-radius: 12px;
+          }
+
+          .report-nav a {
+            font-size: 12px !important;
+          }
+        }
       `}</style>
 
 
@@ -1889,7 +2052,7 @@ export default function Page() {
         canGoBack={canGoBack}
       />
 
-      <div className="main-shell">
+      <div className={`main-shell ${view === 'workspace' ? 'workspace-shell' : ''}`}>
 
         <Topbar
           title={title}
@@ -2634,749 +2797,700 @@ function Workspace({
   agentProgress: AgentProgressMap
   activeAgentMessage: string
 }) {
-  // This workspace follows the same interaction pattern as the
-  // reference Agent Activity UI:
-  // only executed/current steps are shown, and clicking a step
-  // opens the details for that execution.
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
 
-  const getAgentStatus = (
-    agentName: string
-  ): AgentExecutionStatus =>
-    agentProgress[agentName]?.status || 'waiting'
+  const executedAgents = agents.filter(
+    agent => agentProgress[agent.name]?.status !== 'waiting'
+  )
 
-  const getStatusLabel = (
-    status: AgentExecutionStatus
-  ) => {
+  const completedCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'completed'
+  ).length
+
+  const runningAgents = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'running'
+  )
+
+  const activeName = runningAgents[0]?.name || executedAgents[executedAgents.length - 1]?.name || null
+  const effectiveSelected =
+    selectedAgent && executedAgents.some(agent => agent.name === selectedAgent)
+      ? selectedAgent
+      : activeName
+
+  const selected = agents.find(agent => agent.name === effectiveSelected) || null
+  const selectedProgress = selected
+    ? agentProgress[selected.name]
+    : undefined
+
+  useEffect(() => {
+    if (!selectedAgent && activeName) {
+      setSelectedAgent(activeName)
+    }
+  }, [activeName, selectedAgent])
+
+  const statusLabel = (status: AgentExecutionStatus) => {
     if (status === 'running') return 'Running'
     if (status === 'completed') return 'Completed'
-    if (status === 'error') return 'Failed'
+    if (status === 'error') return 'Error'
     return 'Waiting'
   }
 
-  const executedAgents = agents.filter(
-    agent => getAgentStatus(agent.name) !== 'waiting'
-  )
+  const shortName = (name: string) =>
+    name.replace(' Agent', '')
 
-  const runningAgent =
-    agents.find(
-      agent => getAgentStatus(agent.name) === 'running'
-    ) || null
-
-  const defaultSelected =
-    runningAgent?.name ||
-    executedAgents[executedAgents.length - 1]?.name ||
-    null
-
-  const selectedName =
-    selectedAgent &&
-    executedAgents.some(agent => agent.name === selectedAgent)
-      ? selectedAgent
-      : defaultSelected
-
-  const selected =
-    agents.find(agent => agent.name === selectedName) || null
-
-  const selectedStatus = selected
-    ? getAgentStatus(selected.name)
-    : 'waiting'
-
-  const SelectedAgentIcon = selected ? selected.icon : Bot
-
-  const completedCount = agents.filter(
-    agent => getAgentStatus(agent.name) === 'completed'
-  ).length
-
-  const runningCount = agents.filter(
-    agent => getAgentStatus(agent.name) === 'running'
-  ).length
-
-  const visibleResearchAgents = agents.filter(
-    agent =>
-      ['Market Agent', 'Company Agent', 'Competitor Agent'].includes(
-        agent.name
-      ) &&
-      getAgentStatus(agent.name) !== 'waiting'
-  )
-
-  const statusIcon = (status: AgentExecutionStatus) => {
-    if (status === 'running') {
-      return <Loader2 size={15} className="agent-detail-spin" />
-    }
-
-    if (status === 'completed') {
-      return <CheckCircle2 size={15} />
-    }
-
-    if (status === 'error') {
-      return <AlertCircle size={15} />
-    }
-
-    return <Clock3 size={15} />
+  const iconFor = (agent: typeof agents[number]) => {
+    const Icon = agent.icon
+    return <Icon size={17} />
   }
 
-  const detailDescription = selected
-    ? selectedStatus === 'running'
-      ? `${selected.name} is currently executing this stage of the business research workflow.`
-      : selectedStatus === 'completed'
-      ? `${selected.name} completed this stage successfully. Its result is available to the next workflow stage.`
-      : selectedStatus === 'error'
-      ? `${selected.name} reported an error while executing this stage.`
-      : selected.description
-    : 'Select an executed step to inspect what happened.'
-
-  const renderAgentCard = (
-    agent: (typeof agents)[number],
-    compact = false
-  ) => {
-    const status = getAgentStatus(agent.name)
-    const isSelected = selectedName === agent.name
-    const AgentIcon = agent.icon
-
-    return (
-      <button
-        type="button"
-        key={agent.name}
-        className={`execution-step-card ${
-          isSelected ? 'selected' : ''
-        } ${compact ? 'compact' : ''}`}
-        onClick={() => setSelectedAgent(agent.name)}
-      >
-        <span className={`execution-step-icon accent-${agent.accent}`}>
-          <AgentIcon size={compact ? 15 : 17} />
-        </span>
-
-        <span className="execution-step-copy">
-          <strong>{agent.name}</strong>
-          <small>
-            {agentProgress[agent.name]?.message ||
-              agent.description}
-          </small>
-        </span>
-
-        <span
-          className={`execution-step-status status-${status}`}
-        >
-          {statusIcon(status)}
-          {getStatusLabel(status)}
-        </span>
-      </button>
-    )
-  }
+  const workstreams = [
+    {
+      title: 'Market landscape',
+      description: 'Research market trends, demand signals, growth drivers and relevant industry developments.',
+      icon: TrendingUp,
+    },
+    {
+      title: 'Company analysis',
+      description: 'Build a focused view of the target company, positioning, performance and strategic direction.',
+      icon: Building2,
+    },
+    {
+      title: 'Competitive landscape',
+      description: 'Identify major competitors, threats, differentiators and potential market white space.',
+      icon: Compass,
+    },
+    {
+      title: 'Business insights',
+      description: 'Combine evidence into opportunities, risks and decision-ready recommendations.',
+      icon: Sparkles,
+    },
+  ]
 
   return (
-    <div className="view-enter business-activity-view">
+    <div className="view-enter activity-page">
       <style jsx global>{`
-        .business-activity-view {
-          max-width: 1180px;
+        .activity-page {
+          max-width: 1080px;
           margin: 0 auto;
+          padding-bottom: 48px;
         }
 
-        .business-activity-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 18px;
+        .activity-objective {
+          margin: 20px 0 18px;
+          padding: 16px 18px;
+          border: 1px solid rgba(127, 127, 127, 0.18);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.025);
         }
 
-        .business-activity-header h2 {
-          margin: 6px 0 7px;
-          font-size: clamp(25px, 3vw, 34px);
-          line-height: 1.1;
-          letter-spacing: -1px;
-        }
-
-        .business-activity-header p {
-          max-width: 680px;
-          margin: 0;
-          color: var(--muted-foreground);
-          font-size: 13px;
-          line-height: 1.7;
-        }
-
-        .activity-status-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          flex-shrink: 0;
-          padding: 8px 11px;
-          border: 1px solid var(--border);
-          border-radius: 999px;
-          background: var(--card);
-          color: var(--muted-foreground);
+        .activity-objective-label,
+        .activity-section-label {
+          display: block;
+          color: #98a5bd;
           font-size: 11px;
-          font-weight: 700;
-        }
-
-        .activity-status-pill .dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 999px;
-          background: #22c55e;
-        }
-
-        .activity-query-bar {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          margin-bottom: 18px;
-          padding: 13px 15px;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          background: var(--card);
-          box-shadow: 0 5px 18px rgba(15, 23, 42, .04);
-        }
-
-        .activity-query-icon {
-          width: 31px;
-          height: 31px;
-          flex: 0 0 31px;
-          display: grid;
-          place-items: center;
-          border-radius: 9px;
-          background: rgba(99, 102, 241, .10);
-          color: #6366f1;
-        }
-
-        .activity-query-copy {
-          min-width: 0;
-        }
-
-        .activity-query-copy small {
-          display: block;
-          margin-bottom: 3px;
-          color: var(--muted-foreground);
-          font-size: 9px;
           font-weight: 800;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
-          letter-spacing: .08em;
+          margin-bottom: 7px;
         }
 
-        .activity-query-copy strong {
-          display: block;
-          color: var(--foreground);
-          font-size: 13px;
-          line-height: 1.5;
-          font-weight: 600;
+        .activity-objective p {
+          margin: 0;
+          color: #eef1f7;
+          font-size: 15px;
+          line-height: 1.55;
         }
 
-        .business-activity-grid {
+        .activity-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.08fr) minmax(300px, .72fr);
+          grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
           gap: 18px;
           align-items: start;
         }
 
-        .execution-panel,
-        .step-detail-panel,
-        .timeline-panel {
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          background: var(--card);
-          box-shadow: 0 6px 22px rgba(15, 23, 42, .045);
+        .activity-card {
+          border: 1px solid rgba(127, 127, 127, 0.18);
+          border-radius: 20px;
+          background: #15171d;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+          overflow: hidden;
         }
 
-        .execution-panel {
-          padding: 17px;
+        .activity-card-header {
+          padding: 22px 22px 16px;
+          border-bottom: 1px solid rgba(127, 127, 127, 0.12);
         }
 
-        .execution-panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 14px;
-        }
-
-        .execution-panel-header h3,
-        .step-detail-panel h3 {
+        .activity-card-header h3 {
           margin: 0;
-          color: var(--foreground);
-          font-size: 13px;
-          font-weight: 750;
+          color: #f5f7fb;
+          font-size: 22px;
+          line-height: 1.15;
+          letter-spacing: -0.025em;
         }
 
-        .execution-panel-header span {
-          color: var(--muted-foreground);
-          font-size: 10px;
+        .activity-card-header p {
+          margin: 7px 0 0;
+          color: #8f9ab0;
+          font-size: 14px;
         }
 
-        .execution-timeline {
-          display: grid;
-          gap: 8px;
-        }
-
-        .execution-step-wrap {
+        .activity-timeline {
           position: relative;
+          padding: 20px 22px 24px;
         }
 
-        .execution-step-wrap:not(:last-child)::after {
+        .activity-timeline::before {
           content: '';
           position: absolute;
-          left: 21px;
-          top: 51px;
-          bottom: -8px;
+          left: 40px;
+          top: 34px;
+          bottom: 34px;
           width: 1px;
-          background: var(--border);
+          background: rgba(127, 108, 255, 0.24);
         }
 
-        .execution-step-card {
+        .activity-event {
           position: relative;
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: start;
+          padding: 10px 0 18px;
           z-index: 1;
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 11px;
-          border: 1px solid var(--border);
-          border-radius: 11px;
-          background: var(--card);
-          color: inherit;
-          text-align: left;
-          cursor: pointer;
-          transition: border-color .18s, background .18s, transform .18s;
         }
 
-        .execution-step-card:hover {
-          border-color: rgba(99, 102, 241, .35);
-          background: rgba(99, 102, 241, .025);
-          transform: translateY(-1px);
+        .activity-event:last-child {
+          padding-bottom: 4px;
         }
 
-        .execution-step-card.selected {
-          border-color: rgba(99, 102, 241, .45);
-          background: rgba(99, 102, 241, .055);
-          box-shadow: inset 3px 0 #6366f1;
-        }
-
-        .execution-step-icon {
-          width: 34px;
-          height: 34px;
-          flex: 0 0 34px;
+        .activity-event-icon {
+          width: 38px;
+          height: 38px;
           display: grid;
           place-items: center;
-          border-radius: 9px;
+          border-radius: 50%;
+          background: #20243a;
+          color: #8d91ff;
+          border: 1px solid rgba(141, 145, 255, 0.06);
+          box-shadow: 0 0 0 7px #15171d;
         }
 
-        .execution-step-icon.accent-blue { background: #eff6ff; color: #2563eb; }
-        .execution-step-icon.accent-violet { background: #f5f3ff; color: #7c3aed; }
-        .execution-step-icon.accent-cyan { background: #ecfeff; color: #0891b2; }
-        .execution-step-icon.accent-amber { background: #fffbeb; color: #d97706; }
-        .execution-step-icon.accent-pink { background: #fdf2f8; color: #db2777; }
-        .execution-step-icon.accent-green { background: #f0fdf4; color: #16a34a; }
-        .execution-step-icon.accent-indigo { background: #eef2ff; color: #4f46e5; }
+        .activity-event.completed .activity-event-icon {
+          color: #2bd66f;
+          background: rgba(34, 197, 94, 0.12);
+        }
 
-        .detail-agent-icon.accent-blue { background: #eff6ff; color: #2563eb; }
-        .detail-agent-icon.accent-violet { background: #f5f3ff; color: #7c3aed; }
-        .detail-agent-icon.accent-cyan { background: #ecfeff; color: #0891b2; }
-        .detail-agent-icon.accent-amber { background: #fffbeb; color: #d97706; }
-        .detail-agent-icon.accent-pink { background: #fdf2f8; color: #db2777; }
-        .detail-agent-icon.accent-green { background: #f0fdf4; color: #16a34a; }
-        .detail-agent-icon.accent-indigo { background: #eef2ff; color: #4f46e5; }
+        .activity-event.error .activity-event-icon {
+          color: #ff7777;
+          background: rgba(239, 68, 68, 0.12);
+        }
 
-        .execution-step-copy {
+        .activity-event.running .activity-event-icon {
+          animation: activityPulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes activityPulse {
+          0%, 100% { box-shadow: 0 0 0 7px #15171d, 0 0 0 0 rgba(129, 121, 255, 0.12); }
+          50% { box-shadow: 0 0 0 7px #15171d, 0 0 0 9px rgba(129, 121, 255, 0.05); }
+        }
+
+        .activity-event-main {
           min-width: 0;
-          flex: 1;
         }
 
-        .execution-step-copy strong {
-          display: block;
-          overflow: hidden;
-          color: var(--foreground);
-          font-size: 12px;
-          font-weight: 700;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .execution-step-copy small {
-          display: block;
-          overflow: hidden;
-          margin-top: 3px;
-          color: var(--muted-foreground);
-          font-size: 10px;
-          line-height: 1.45;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .execution-step-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          flex: 0 0 auto;
-          font-size: 9px;
-          font-weight: 750;
-        }
-
-        .execution-step-status.status-running { color: #6366f1; }
-        .execution-step-status.status-completed { color: #16a34a; }
-        .execution-step-status.status-error { color: #dc2626; }
-
-        .parallel-execution {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+        .activity-event-title {
+          display: flex;
+          align-items: baseline;
           gap: 8px;
-          margin: 9px 0;
-          padding-left: 12px;
+          flex-wrap: wrap;
         }
 
-        .parallel-execution .execution-step-card {
-          align-items: flex-start;
-          min-height: 86px;
-          flex-direction: column;
+        .activity-event-title strong {
+          color: #f2f4f8;
+          font-size: 16px;
+          line-height: 1.25;
         }
 
-        .parallel-execution .execution-step-copy small {
-          white-space: normal;
-        }
-
-        .parallel-execution .execution-step-status {
-          margin-top: auto;
-        }
-
-        .step-detail-panel {
-          position: sticky;
-          top: 100px;
-          padding: 18px;
-        }
-
-        .detail-kicker {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 13px;
-          color: var(--muted-foreground);
-          font-size: 9px;
+        .activity-event-title small {
+          color: #8e99af;
+          font-size: 11px;
           font-weight: 800;
-          letter-spacing: .08em;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
         }
 
-        .detail-agent {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          margin-bottom: 16px;
+        .activity-event-main p {
+          margin: 5px 0 0;
+          color: #aeb7c8;
+          font-size: 14px;
+          line-height: 1.45;
         }
 
-        .detail-agent-icon {
+        .activity-event-time {
+          color: #7f899d;
+          font-size: 12px;
+          white-space: nowrap;
+          padding-top: 2px;
+        }
+
+        .activity-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 7px;
+          padding: 4px 9px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 750;
+          background: rgba(127, 127, 127, 0.08);
+          color: #98a5b8;
+        }
+
+        .activity-status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+
+        .activity-event.completed .activity-status { color: #29d36c; background: rgba(34, 197, 94, 0.10); }
+        .activity-event.running .activity-status { color: #8d91ff; background: rgba(99, 102, 241, 0.10); }
+        .activity-event.error .activity-status { color: #ff7777; background: rgba(239, 68, 68, 0.10); }
+
+        .output-card {
+          padding: 22px;
+        }
+
+        .output-card h3 {
+          margin: 0 0 16px;
+          color: #9aa8c0;
+          font-size: 12px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .output-tabs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 9px;
+        }
+
+        .output-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 40px;
+          padding: 8px 13px;
+          border: 1px solid rgba(127, 127, 127, 0.18);
+          border-radius: 999px;
+          background: transparent;
+          color: #95a0b5;
+          cursor: pointer;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 650;
+          transition: 0.2s ease;
+        }
+
+        .output-tab:hover {
+          border-color: rgba(129, 121, 255, 0.45);
+          color: #d8dcff;
+        }
+
+        .output-tab.active {
+          border-color: transparent;
+          background: #8582ff;
+          color: white;
+          box-shadow: 0 7px 18px rgba(99, 102, 241, 0.20);
+        }
+
+        .output-detail {
+          margin-top: 18px;
+          padding-top: 17px;
+          border-top: 1px solid rgba(127, 127, 127, 0.12);
+        }
+
+        .output-detail h4 {
+          margin: 0 0 6px;
+          color: #f2f4f8;
+          font-size: 16px;
+        }
+
+        .output-detail p {
+          margin: 0;
+          color: #aeb7c8;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .output-detail .detail-status {
+          display: inline-flex;
+          margin-top: 11px;
+          padding: 5px 9px;
+          border-radius: 999px;
+          background: rgba(34, 197, 94, 0.10);
+          color: #2bd66f;
+          font-size: 11px;
+          font-weight: 750;
+        }
+
+        .plan-card {
+          grid-column: 1 / -1;
+          padding: 22px;
+        }
+
+        .plan-heading h3 {
+          margin: 0;
+          color: #f3f5fa;
+          font-size: 22px;
+          letter-spacing: -0.02em;
+        }
+
+        .plan-heading p {
+          margin: 6px 0 18px;
+          color: #8f9ab0;
+          font-size: 14px;
+        }
+
+        .plan-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .plan-item {
+          display: grid;
+          grid-template-columns: 42px minmax(0, 1fr);
+          gap: 12px;
+          padding: 17px;
+          border: 1px solid rgba(127, 127, 127, 0.16);
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.018);
+        }
+
+        .plan-item-icon {
           width: 42px;
           height: 42px;
           display: grid;
           place-items: center;
-          border-radius: 11px;
+          border-radius: 12px;
+          background: rgba(99, 102, 241, 0.10);
+          color: #8b88ff;
         }
 
-        .detail-agent-copy strong {
+        .plan-item strong {
           display: block;
-          color: var(--foreground);
+          color: #f0f2f7;
           font-size: 15px;
+          line-height: 1.3;
         }
 
-        .detail-agent-copy small {
+        .plan-item span {
           display: block;
-          margin-top: 3px;
-          color: var(--muted-foreground);
-          font-size: 10px;
+          margin-top: 5px;
+          color: #a5afc0;
+          font-size: 13px;
+          line-height: 1.5;
         }
 
-        .detail-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 5px 8px;
-          margin-bottom: 14px;
-          border-radius: 999px;
-          background: var(--muted);
-          color: var(--foreground);
-          font-size: 10px;
-          font-weight: 700;
-        }
-
-        .detail-message {
-          padding: 12px;
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          background: var(--muted);
-        }
-
-        .detail-message strong {
-          display: block;
-          margin-bottom: 5px;
-          font-size: 10px;
-          color: var(--foreground);
-          text-transform: uppercase;
-          letter-spacing: .06em;
-        }
-
-        .detail-message p {
-          margin: 0;
-          color: var(--muted-foreground);
-          font-size: 11px;
-          line-height: 1.65;
-        }
-
-        .detail-description {
-          margin: 14px 0 0;
-          color: var(--muted-foreground);
-          font-size: 11px;
-          line-height: 1.7;
-        }
-
-        .execution-summary {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 7px;
-          margin-top: 16px;
-        }
-
-        .execution-summary-item {
-          padding: 10px;
-          border: 1px solid var(--border);
-          border-radius: 9px;
-          background: var(--muted);
-        }
-
-        .execution-summary-item strong {
-          display: block;
-          color: var(--foreground);
-          font-size: 16px;
-        }
-
-        .execution-summary-item span {
-          display: block;
-          margin-top: 2px;
-          color: var(--muted-foreground);
-          font-size: 8px;
-          text-transform: uppercase;
-          letter-spacing: .05em;
-        }
-
-        .empty-execution {
-          padding: 28px 16px;
-          border: 1px dashed var(--border);
-          border-radius: 11px;
+        .activity-empty {
+          padding: 28px 22px;
           text-align: center;
+          color: #8f9ab0;
+          font-size: 14px;
         }
 
-        .empty-execution svg {
-          margin: 0 auto 9px;
-          color: var(--muted-foreground);
+        html.light .activity-card,
+        html.light .activity-objective {
+          background: #f1f5fc !important;
+          border-color: #bcc8df !important;
         }
 
-        .empty-execution strong {
-          display: block;
-          color: var(--foreground);
-          font-size: 12px;
+        html.light .activity-event-icon {
+          box-shadow: 0 0 0 7px #f1f5fc;
+          background: #e9edfb;
         }
 
-        .empty-execution p {
-          margin: 5px auto 0;
-          max-width: 330px;
-          color: var(--muted-foreground);
-          font-size: 10px;
-          line-height: 1.6;
-        }
-
-        .agent-detail-spin {
-          animation: businessAgentSpin 1s linear infinite;
-        }
-
-        @keyframes businessAgentSpin {
-          to { transform: rotate(360deg); }
+        html.light .activity-event strong,
+        html.light .activity-card-header h3,
+        html.light .output-detail h4,
+        html.light .plan-heading h3,
+        html.light .plan-item strong,
+        html.light .activity-objective p {
+          color: #101a31 !important;
         }
 
         @media (max-width: 900px) {
-          .business-activity-grid {
+          .activity-grid {
             grid-template-columns: 1fr;
           }
 
-          .step-detail-panel {
-            position: static;
+          .plan-card {
+            grid-column: auto;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .activity-page {
+            width: 100%;
+            padding: 0 0 28px;
           }
 
-          .parallel-execution {
+          .activity-objective {
+            margin: 14px 0;
+            padding: 14px 15px;
+            border-radius: 15px;
+          }
+
+          .activity-objective p {
+            font-size: 14px;
+          }
+
+          .activity-grid {
+            gap: 14px;
+          }
+
+          .activity-card {
+            border-radius: 18px;
+          }
+
+          .activity-card-header {
+            padding: 20px 18px 14px;
+          }
+
+          .activity-card-header h3,
+          .plan-heading h3 {
+            font-size: 21px;
+          }
+
+          .activity-timeline {
+            padding: 16px 15px 20px;
+          }
+
+          .activity-timeline::before {
+            left: 34px;
+            top: 32px;
+            bottom: 32px;
+          }
+
+          .activity-event {
+            grid-template-columns: 36px minmax(0, 1fr);
+            gap: 11px;
+            padding: 9px 0 17px;
+          }
+
+          .activity-event-icon {
+            width: 36px;
+            height: 36px;
+            box-shadow: 0 0 0 6px #15171d;
+          }
+
+          html.light .activity-event-icon {
+            box-shadow: 0 0 0 6px #f1f5fc;
+          }
+
+          .activity-event-time {
+            display: none;
+          }
+
+          .activity-event-title strong {
+            font-size: 15px;
+          }
+
+          .activity-event-main p {
+            font-size: 13px;
+          }
+
+          .output-card,
+          .plan-card {
+            padding: 18px 15px;
+          }
+
+          .output-tabs {
+            gap: 8px;
+          }
+
+          .output-tab {
+            min-height: 39px;
+            padding: 7px 12px;
+            font-size: 13px;
+          }
+
+          .plan-grid {
             grid-template-columns: 1fr;
+            gap: 10px;
+          }
+
+          .plan-item {
+            padding: 14px;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .activity-event {
+            grid-template-columns: 32px minmax(0, 1fr);
+            gap: 10px;
+          }
+
+          .activity-event-icon {
+            width: 32px;
+            height: 32px;
+          }
+
+          .activity-timeline::before {
+            left: 31px;
+          }
+
+          .output-tab {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>
 
-      <div className="business-activity-header">
-        <div>
-          <span className="eyebrow accent-eyebrow">
-            <Activity size={13} />
-            Live agent activity
-          </span>
-          <h2>Research workspace</h2>
-          <p>
-            Watch the business research workflow execute in real time.
-            Only the steps that have started or completed are shown.
-            Select any executed step to inspect what happened.
-          </p>
-        </div>
-
-        <span className="activity-status-pill">
-          <i className="dot" />
-          {researching
-            ? 'Research running'
-            : completedCount === agents.length
-            ? 'Research completed'
-            : 'Ready'}
-        </span>
+      <div className="activity-objective">
+        <span className="activity-objective-label">Research objective</span>
+        <p>{query || 'Your business research request is being prepared.'}</p>
       </div>
 
-      {query && (
-        <div className="activity-query-bar">
-          <span className="activity-query-icon">
-            <MessageSquareText size={16} />
-          </span>
-          <div className="activity-query-copy">
-            <small>Research objective</small>
-            <strong>{query}</strong>
+      <div className="activity-grid">
+        <section className="activity-card">
+          <div className="activity-card-header">
+            <h3>Agent Activity</h3>
+            <p>
+              {researching
+                ? activeAgentMessage
+                : completedCount === agents.length
+                ? 'Research workflow completed successfully.'
+                : 'Live execution history for this research run.'}
+            </p>
           </div>
-        </div>
-      )}
 
-      <div className="business-activity-grid">
-        <section className="execution-panel">
-          <div className="execution-panel-header">
-            <div>
-              <h3>Execution steps</h3>
-              <span>
-                {executedAgents.length} of {agents.length} steps executed
+          <div className="activity-timeline">
+            {executedAgents.length === 0 ? (
+              <div className="activity-empty">
+                Start research to see your business agents execute here.
+              </div>
+            ) : (
+              executedAgents.map(agent => {
+                const progress = agentProgress[agent.name]
+                const status = progress?.status || 'waiting'
+                const revision =
+                  agent.name === 'Reviewer Agent' &&
+                  /revision|rejected|needs/i.test(progress?.message || '')
+
+                return (
+                  <button
+                    key={agent.name}
+                    type="button"
+                    className={`activity-event ${status}`}
+                    onClick={() => setSelectedAgent(agent.name)}
+                    aria-pressed={effectiveSelected === agent.name}
+                    style={{
+                      width: '100%',
+                      border: 0,
+                      background: 'transparent',
+                      color: 'inherit',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      font: 'inherit',
+                    }}
+                  >
+                    <span className="activity-event-icon">
+                      {iconFor(agent)}
+                    </span>
+
+                    <span className="activity-event-main">
+                      <span className="activity-event-title">
+                        <strong>{agent.name}</strong>
+                        {revision && <small>Revision requested</small>}
+                      </span>
+                      <p>
+                        {progress?.message || agent.description}
+                      </p>
+                      <span className="activity-status">
+                        <span className="activity-status-dot" />
+                        {statusLabel(status)}
+                      </span>
+                    </span>
+
+                    <span className="activity-event-time">
+                      {status === 'running' ? 'Now' : status === 'completed' ? 'Done' : ''}
+                    </span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="activity-card output-card">
+          <h3>Agent Output</h3>
+
+          <div className="output-tabs">
+            {executedAgents.map(agent => (
+              <button
+                key={agent.name}
+                type="button"
+                className={`output-tab ${effectiveSelected === agent.name ? 'active' : ''}`}
+                onClick={() => setSelectedAgent(agent.name)}
+              >
+                {iconFor(agent)}
+                {shortName(agent.name)}
+              </button>
+            ))}
+          </div>
+
+          {selected ? (
+            <div className="output-detail">
+              <h4>{selected.name}</h4>
+              <p>
+                {selectedProgress?.message || selected.description}
+              </p>
+              <span className="detail-status">
+                {statusLabel(selectedProgress?.status || 'waiting')}
               </span>
             </div>
-            <span>
-              {runningCount > 0
-                ? `${runningCount} running`
-                : `${completedCount} completed`}
-            </span>
-          </div>
-
-          {executedAgents.length === 0 ? (
-            <div className="empty-execution">
-              <Clock3 size={20} />
-              <strong>Waiting for the first agent</strong>
-              <p>
-                Once the research starts, the current and completed
-                business research steps will appear here.
-              </p>
-            </div>
           ) : (
-            <div className="execution-timeline">
-              {renderAgentCard(agents[0])}
-
-              {visibleResearchAgents.length > 0 && (
-                <div className="parallel-execution">
-                  {visibleResearchAgents.map(agent =>
-                    renderAgentCard(agent, true)
-                  )}
-                </div>
-              )}
-
-              {agents
-                .filter(agent =>
-                  ['Analysis Agent', 'Writer Agent', 'Reviewer Agent', 'Final Report Agent'].includes(
-                    agent.name
-                  )
-                )
-                .filter(agent => getAgentStatus(agent.name) !== 'waiting')
-                .map(agent => renderAgentCard(agent))}
+            <div className="output-detail">
+              <p>Select an executed agent to view its latest output message.</p>
             </div>
           )}
         </section>
 
-        <aside className="step-detail-panel">
-          <span className="detail-kicker">
-            <Bot size={12} />
-            Step details
-          </span>
+        <section className="activity-card plan-card">
+          <div className="plan-heading">
+            <h3>Research workstreams</h3>
+            <p>Business-focused stages covered by your agent workflow.</p>
+          </div>
 
-          {selected ? (
-            <>
-              <div className="detail-agent">
-                <span
-                  className={`detail-agent-icon accent-${selected.accent}`}
-                >
-                  <SelectedAgentIcon size={19} />
-                </span>
-
-                <div className="detail-agent-copy">
-                  <strong>{selected.name}</strong>
-                  <small>Business research workflow step</small>
+          <div className="plan-grid">
+            {workstreams.map(item => {
+              const Icon = item.icon
+              return (
+                <div className="plan-item" key={item.title}>
+                  <span className="plan-item-icon">
+                    <Icon size={18} />
+                  </span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <span>{item.description}</span>
+                  </span>
                 </div>
-              </div>
-
-              <span className="detail-status">
-                {statusIcon(selectedStatus)}
-                {getStatusLabel(selectedStatus)}
-              </span>
-
-              <div className="detail-message">
-                <strong>What happened</strong>
-                <p>
-                  {agentProgress[selected.name]?.message ||
-                    selected.description}
-                </p>
-              </div>
-
-              <p className="detail-description">
-                {detailDescription}
-              </p>
-
-              <div className="execution-summary">
-                <div className="execution-summary-item">
-                  <strong>{completedCount}</strong>
-                  <span>Completed</span>
-                </div>
-                <div className="execution-summary-item">
-                  <strong>{runningCount}</strong>
-                  <span>Running</span>
-                </div>
-                <div className="execution-summary-item">
-                  <strong>{agents.length - executedAgents.length}</strong>
-                  <span>Waiting</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="empty-execution">
-              <Bot size={20} />
-              <strong>Select an executed step</strong>
-              <p>
-                Click Planner, Market, Company, Competitor, Analysis,
-                Writer, Reviewer or Final Report to see its execution detail.
-              </p>
-            </div>
-          )}
-        </aside>
-      </div>
-
-      <div className="workspace-banner" style={{ marginTop: 18 }}>
-        <div className="workspace-banner-icon">
-          <Activity size={19} />
-        </div>
-        <div>
-          <strong>Current execution</strong>
-          <p>
-            {researching
-              ? activeAgentMessage
-              : completedCount === agents.length
-              ? 'The complete business research workflow has finished.'
-              : 'The workflow is ready for the next research request.'}
-          </p>
-        </div>
+              )
+            })}
+          </div>
+        </section>
       </div>
     </div>
   )
 }
 
 
+// ---------------------------------------------------------
 // REPORTS
 // ---------------------------------------------------------
-
 
 function Reports({
   reports,
