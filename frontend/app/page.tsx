@@ -1524,6 +1524,26 @@ export default function Page() {
 
 
   // -------------------------------------------------------
+  // AUTO-OPEN FINAL REPORT
+  // -------------------------------------------------------
+  // Once the Final Report Agent has completed and the backend has
+  // returned the saved report, move directly from Agent Activity
+  // to the generated report.
+  useEffect(() => {
+    const finalStatus =
+      agentProgress['Final Report Agent']?.status
+
+    if (
+      finalStatus === 'completed' &&
+      selectedReport &&
+      viewRef.current === 'workspace'
+    ) {
+      setView('reports')
+    }
+  }, [agentProgress, selectedReport])
+
+
+  // -------------------------------------------------------
   // DELETE REPORT
   // -------------------------------------------------------
 
@@ -1910,6 +1930,62 @@ export default function Page() {
           backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         }
         .report-toolbar .toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
+        .business-final-report-ready {
+          margin-top: 16px;
+          padding: 16px 18px;
+          border: 1px solid rgba(99, 102, 241, 0.28);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          background: rgba(99, 102, 241, 0.08);
+        }
+
+        html.light .business-final-report-ready {
+          border-color: rgba(79, 70, 229, 0.18);
+          background: #f5f7ff;
+        }
+
+        .business-final-report-ready > div {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .business-final-report-kicker {
+          color: #818cf8;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+
+        html.light .business-final-report-kicker {
+          color: #4f46e5;
+        }
+
+        .business-final-report-ready strong {
+          font-size: 14px;
+          line-height: 1.45;
+        }
+
+        .business-final-report-ready button {
+          flex: 0 0 auto;
+          border: 0;
+          border-radius: 11px;
+          padding: 10px 14px;
+          background: #6366f1;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 750;
+          cursor: pointer;
+        }
+
+        .business-final-report-ready button:hover {
+          background: #5558e8;
+        }
+
         @media (max-width: 900px) {
           .report-nav { top: calc(var(--topbar-h, 92px) + 56px) !important; max-height: none !important; }
         }
@@ -2797,44 +2873,6 @@ function Workspace({
   agentProgress: AgentProgressMap
   activeAgentMessage: string
 }) {
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
-
-  const executedAgents = agents.filter(
-    agent => agentProgress[agent.name]?.status !== 'waiting'
-  )
-
-  const runningAgents = agents.filter(
-    agent => agentProgress[agent.name]?.status === 'running'
-  )
-
-  const completedCount = agents.filter(
-    agent => agentProgress[agent.name]?.status === 'completed'
-  ).length
-
-  const activeName =
-    runningAgents[0]?.name ||
-    executedAgents[executedAgents.length - 1]?.name ||
-    null
-
-  const effectiveSelected =
-    selectedAgent &&
-    executedAgents.some(agent => agent.name === selectedAgent)
-      ? selectedAgent
-      : activeName
-
-  const selected =
-    agents.find(agent => agent.name === effectiveSelected) || null
-
-  const selectedProgress = selected
-    ? agentProgress[selected.name]
-    : undefined
-
-  useEffect(() => {
-    if (!selectedAgent && activeName) {
-      setSelectedAgent(activeName)
-    }
-  }, [activeName, selectedAgent])
-
   const statusLabel = (status: AgentExecutionStatus) => {
     if (status === 'running') return 'Running'
     if (status === 'completed') return 'Completed'
@@ -2842,1337 +2880,697 @@ function Workspace({
     return 'Waiting'
   }
 
-  const shortName = (name: string) =>
-    name.replace(' Agent', '')
+  const executedAgents = agents.filter(
+    agent => agentProgress[agent.name]?.status !== 'waiting'
+  )
 
-  const iconFor = (agent: typeof agents[number]) => {
-    const Icon = agent.icon
-    return <Icon size={17} />
-  }
+  const completedCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'completed'
+  ).length
 
-  const businessDetails: Record<string, {
+  const runningCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'running'
+  ).length
+
+  const detailByAgent: Record<string, {
     role: string
-    detail: string
-    focus: string
+    what: string
+    output: string
   }> = {
     'Planner Agent': {
       role: 'Research planning',
-      detail:
-        'Understands the business question and breaks it into focused research tasks before execution begins.',
-      focus:
-        'Research objective, scope, questions and execution order',
+      what: 'Breaks the business question into focused research tasks and defines what information each research stream needs.',
+      output: 'Creates the execution plan for market, company, competitor and business insight research.',
     },
     'Market Agent': {
       role: 'Market intelligence',
-      detail:
-        'Researches market conditions, demand, trends, growth drivers, customer signals and relevant industry developments.',
-      focus:
-        'Market trends, demand, growth drivers and industry signals',
+      what: 'Investigates the market environment, demand, trends, growth signals, customer needs and important industry developments.',
+      output: 'Collects market evidence that helps explain market direction and demand.',
     },
     'Company Agent': {
       role: 'Company intelligence',
-      detail:
-        'Builds a focused view of the target company, including positioning, business direction, products and strategic context.',
-      focus:
-        'Company profile, positioning, products and strategy',
+      what: 'Studies the target company, its products, positioning, business direction and relevant strategic context.',
+      output: 'Builds a company-focused evidence base for the final analysis.',
     },
     'Competitor Agent': {
       role: 'Competitive intelligence',
-      detail:
-        'Investigates major competitors, competitive strengths, differentiators, threats and market gaps.',
-      focus:
-        'Competitors, differentiation, threats and white space',
+      what: 'Identifies important competitors and examines their positioning, differentiation, strengths, threats and market gaps.',
+      output: 'Creates the competitive landscape needed for comparison and opportunity analysis.',
     },
     'Analysis Agent': {
       role: 'Business analysis',
-      detail:
-        'Combines the research findings and turns evidence into trends, opportunities, risks and decision-ready insights.',
-      focus:
-        'Patterns, opportunities, risks and strategic interpretation',
+      what: 'Combines market, company and competitor findings to identify patterns, opportunities, risks and meaningful business insights.',
+      output: 'Turns collected evidence into decision-ready business interpretation.',
     },
     'Writer Agent': {
       role: 'Report generation',
-      detail:
-        'Transforms the analyzed findings into a structured business research report with clear sections and sources.',
-      focus:
-        'Executive brief, market view, competition, opportunities and risks',
+      what: 'Organizes the analysis into a structured business research report with clear sections, findings and sources.',
+      output: 'Produces the first complete business research report draft.',
     },
     'Reviewer Agent': {
       role: 'Quality review',
-      detail:
-        'Reviews the draft for alignment, evidence quality, clarity, repetition, neutrality and missing business insights.',
-      focus:
-        'Accuracy, completeness, evidence, structure and readability',
+      what: 'Checks the report for evidence quality, completeness, clarity, consistency, repetition and alignment with the research question.',
+      output: 'Validates the report and identifies anything that needs correction or improvement.',
     },
     'Final Report Agent': {
       role: 'Final delivery',
-      detail:
-        'Produces the final reviewed business research report while preserving the useful evidence and business insights.',
-      focus:
-        'Final report quality, structure and decision-ready output',
+      what: 'Applies the reviewed result and prepares the final business research report for the user.',
+      output: 'Delivers the final reviewed report and makes it ready to open.',
     },
   }
 
-  const workflowRows = [
-    {
-      name: 'Planner Agent',
-      subtitle: 'Understands the objective & creates the research plan',
-      icon: Clipboard,
-    },
-    {
-      name: 'Market Agent',
-      subtitle: 'Market trends, demand & industry intelligence',
-      icon: TrendingUp,
-      group: 'research',
-    },
-    {
-      name: 'Company Agent',
-      subtitle: 'Target company, positioning & business direction',
-      icon: Building2,
-      group: 'research',
-    },
-    {
-      name: 'Competitor Agent',
-      subtitle: 'Competitors, differentiation & market gaps',
-      icon: Compass,
-      group: 'research',
-    },
-    {
-      name: 'Analysis Agent',
-      subtitle: 'Combines findings into opportunities & risks',
-      icon: BarChart3,
-    },
-    {
-      name: 'Writer Agent',
-      subtitle: 'Creates the structured business research report',
-      icon: FileText,
-    },
-    {
-      name: 'Reviewer Agent',
-      subtitle: 'Checks evidence, quality, completeness & clarity',
-      icon: CheckCircle2,
-    },
-    {
-      name: 'Final Report Agent',
-      subtitle: 'Delivers the final reviewed report',
-      icon: FileBarChart,
-    },
-  ]
+  const researchAgents = agents.filter(agent =>
+    ['Market Agent', 'Company Agent', 'Competitor Agent'].includes(agent.name)
+  )
 
-  const getStatus = (name: string): AgentExecutionStatus =>
-    agentProgress[name]?.status || 'waiting'
+  const firstAgent = agents.find(agent => agent.name === 'Planner Agent')
+
+  const finalAgents = agents.filter(agent =>
+    ['Analysis Agent', 'Writer Agent', 'Reviewer Agent', 'Final Report Agent'].includes(agent.name)
+  )
+
+  const renderAgentCard = (agent: typeof agents[number]) => {
+    const progress = agentProgress[agent.name]
+    const status = progress?.status || 'waiting'
+    const details = detailByAgent[agent.name]
+    const Icon = agent.icon
+
+    return (
+      <article className={`business-agent-card ${status}`}>
+        <div className="business-agent-card-top">
+          <span className="business-agent-icon">
+            <Icon size={18} />
+          </span>
+
+          <div className="business-agent-heading">
+            <div className="business-agent-name-row">
+              <strong>{agent.name}</strong>
+              <span className={`business-agent-status ${status}`}>
+                <span className="dot" />
+                {statusLabel(status)}
+              </span>
+            </div>
+            <span className="business-agent-role">
+              {details?.role || agent.description}
+            </span>
+          </div>
+        </div>
+
+        <div className="business-agent-detail">
+          <span className="business-detail-label">What this agent does</span>
+          <p>{details?.what || agent.description}</p>
+        </div>
+
+        {status !== 'waiting' && (
+          <div className="business-agent-update">
+            <span className="business-detail-label">Execution update</span>
+            <p>
+              {progress?.message || details?.output || activeAgentMessage}
+            </p>
+          </div>
+        )}
+      </article>
+    )
+  }
 
   return (
     <div className="view-enter activity-page business-activity-page">
       <style jsx global>{`
         .business-activity-page {
           width: 100%;
-          max-width: 1120px;
+          max-width: 1080px;
           margin: 0 auto;
           padding: 0 0 56px;
         }
 
         .business-objective {
           margin: 18px 0 16px;
-          padding: 18px 20px;
+          padding: 17px 20px;
           border: 1px solid rgba(127, 127, 127, 0.18);
           border-radius: 18px;
-          background: rgba(255, 255, 255, 0.035);
+          background: var(--card-bg, #15171d);
         }
 
-        .business-objective-label {
+        .business-objective-label,
+        .business-detail-label {
           display: block;
-          margin-bottom: 8px;
-          color: #8794ad;
-          font-size: 11px;
+          margin-bottom: 7px;
+          color: #8995ad;
+          font-size: 10px;
           font-weight: 850;
-          letter-spacing: 0.13em;
+          letter-spacing: .12em;
           text-transform: uppercase;
         }
 
         .business-objective p {
           margin: 0;
-          color: #edf1f8;
-          font-size: 15px;
+          color: var(--text-primary, #eef2f8);
+          font-size: 14px;
           line-height: 1.55;
           word-break: break-word;
         }
 
-        .business-status-row {
+        .business-run-summary {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          margin-bottom: 16px;
+          margin: 0 0 16px;
+          color: #8d99b0;
+          font-size: 12px;
         }
 
-        .business-status-copy {
-          color: #8e9ab0;
-          font-size: 13px;
-          line-height: 1.45;
-        }
-
-        .business-status-pill {
-          flex: 0 0 auto;
+        .business-run-pill {
           display: inline-flex;
           align-items: center;
           gap: 7px;
           padding: 7px 11px;
           border-radius: 999px;
-          background: rgba(34, 197, 94, 0.10);
-          color: #28d66d;
-          font-size: 11px;
+          border: 1px solid rgba(34,197,94,.16);
+          background: rgba(34,197,94,.09);
+          color: #2bd86f;
           font-weight: 800;
-          border: 1px solid rgba(34, 197, 94, 0.16);
+          white-space: nowrap;
         }
 
-        .business-status-pill .dot {
+        .business-run-pill .dot,
+        .business-agent-status .dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
           background: currentColor;
+          flex: 0 0 auto;
         }
 
         .business-activity-card {
-          border: 1px solid rgba(127, 127, 127, 0.18);
+          border: 1px solid rgba(127,127,127,.18);
           border-radius: 20px;
-          background: #15171d;
-          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+          background: var(--card-bg, #15171d);
           overflow: hidden;
         }
 
-        .business-card-heading {
-          padding: 21px 22px 16px;
-          border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+        .business-activity-heading {
+          padding: 20px 22px 17px;
+          border-bottom: 1px solid rgba(127,127,127,.13);
         }
 
-        .business-card-heading h3 {
+        .business-activity-heading h3 {
           margin: 0;
-          color: #f5f7fb;
+          color: var(--text-primary, #f4f6fa);
           font-size: 21px;
           line-height: 1.2;
-          letter-spacing: -0.025em;
+          letter-spacing: -.025em;
         }
 
-        .business-card-heading p {
+        .business-activity-heading p {
           margin: 7px 0 0;
-          color: #8f9ab0;
+          color: #8d99b0;
           font-size: 13px;
-          line-height: 1.45;
+          line-height: 1.5;
         }
 
-        .business-timeline {
+        .business-agent-list {
           position: relative;
-          padding: 18px 22px 24px;
+          padding: 17px 22px 25px;
         }
 
-        .business-timeline::before {
+        .business-agent-list::before {
           content: '';
           position: absolute;
           left: 42px;
           top: 39px;
           bottom: 39px;
           width: 1px;
-          background: rgba(129, 121, 255, 0.25);
+          background: rgba(126,118,255,.24);
         }
 
-        .business-event {
+        .business-sequential-wrap {
           position: relative;
-          display: grid;
-          grid-template-columns: 40px minmax(0, 1fr) auto;
-          gap: 14px;
-          align-items: start;
-          width: 100%;
-          padding: 10px 0 19px;
-          border: 0;
-          background: transparent;
-          color: inherit;
-          text-align: left;
-          font: inherit;
-          cursor: pointer;
           z-index: 1;
         }
 
-        .business-event:last-child {
-          padding-bottom: 3px;
+        .business-agent-card {
+          position: relative;
+          margin: 0 0 13px;
+          padding: 15px 16px 16px 0;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          transition: transform .2s ease;
         }
 
-        .business-event-icon {
-          width: 40px;
-          height: 40px;
+        .business-agent-card:last-child {
+          margin-bottom: 0;
+        }
+
+        .business-agent-card-top {
+          display: grid;
+          grid-template-columns: 42px minmax(0,1fr);
+          gap: 14px;
+          align-items: start;
+        }
+
+        .business-agent-icon {
+          position: relative;
+          z-index: 2;
+          width: 42px;
+          height: 42px;
           display: grid;
           place-items: center;
           border-radius: 50%;
-          background: #22263d;
-          color: #9a98ff;
-          border: 1px solid rgba(154, 152, 255, 0.10);
-          box-shadow: 0 0 0 7px #15171d;
+          color: #9897ff;
+          background: #23263d;
+          border: 1px solid rgba(143,140,255,.13);
+          box-shadow: 0 0 0 7px var(--card-bg, #15171d);
         }
 
-        .business-event.completed .business-event-icon {
-          color: #29d36d;
-          background: rgba(34, 197, 94, 0.12);
+        .business-agent-card.completed .business-agent-icon {
+          color: #28d66c;
+          background: rgba(34,197,94,.12);
         }
 
-        .business-event.error .business-event-icon {
+        .business-agent-card.error .business-agent-icon {
           color: #ff7070;
-          background: rgba(239, 68, 68, 0.12);
+          background: rgba(239,68,68,.12);
         }
 
-        .business-event.running .business-event-icon {
-          animation: businessPulse 1.45s ease-in-out infinite;
+        .business-agent-card.running .business-agent-icon {
+          animation: businessAgentPulse 1.4s ease-in-out infinite;
         }
 
-        .business-event.selected .business-event-icon {
-          outline: 2px solid rgba(133, 130, 255, 0.28);
-          outline-offset: 2px;
+        @keyframes businessAgentPulse {
+          0%,100% { box-shadow: 0 0 0 7px var(--card-bg, #15171d); }
+          50% { box-shadow: 0 0 0 7px var(--card-bg, #15171d), 0 0 0 10px rgba(126,118,255,.08); }
         }
 
-        @keyframes businessPulse {
-          0%, 100% {
-            box-shadow: 0 0 0 7px #15171d;
-          }
-          50% {
-            box-shadow: 0 0 0 7px #15171d, 0 0 0 10px rgba(129, 121, 255, 0.06);
-          }
-        }
-
-        .business-event-body {
+        .business-agent-heading {
           min-width: 0;
+          padding-top: 1px;
         }
 
-        .business-event-title {
+        .business-agent-name-row {
           display: flex;
           align-items: center;
-          gap: 8px;
+          justify-content: space-between;
+          gap: 10px;
           flex-wrap: wrap;
         }
 
-        .business-event-title strong {
-          color: #f1f4f9;
+        .business-agent-name-row strong {
+          color: var(--text-primary, #f2f4f8);
           font-size: 16px;
           line-height: 1.3;
         }
 
-        .business-event-role {
-          color: #8d99ae;
-          font-size: 11px;
-          font-weight: 750;
+        .business-agent-role {
+          display: block;
+          margin-top: 4px;
+          color: #8e9ab0;
+          font-size: 12px;
+          line-height: 1.4;
         }
 
-        .business-event-body p {
-          margin: 5px 0 0;
-          color: #aeb7c8;
-          font-size: 13px;
-          line-height: 1.48;
-        }
-
-        .business-event-time {
-          color: #7e899e;
-          font-size: 11px;
-          white-space: nowrap;
-          padding-top: 3px;
-        }
-
-        .business-mini-status {
+        .business-agent-status {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          margin-top: 8px;
-          padding: 4px 9px;
+          padding: 5px 9px;
           border-radius: 999px;
-          background: rgba(127, 127, 127, 0.08);
-          color: #98a4b8;
+          background: rgba(126,118,255,.09);
+          color: #aaa7ff;
           font-size: 10px;
           font-weight: 800;
+          white-space: nowrap;
         }
 
-        .business-mini-status .dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: currentColor;
+        .business-agent-status.completed {
+          background: rgba(34,197,94,.10);
+          color: #29d66c;
         }
 
-        .business-event.completed .business-mini-status {
-          color: #28d66d;
-          background: rgba(34, 197, 94, 0.10);
+        .business-agent-status.error {
+          background: rgba(239,68,68,.10);
+          color: #ff7777;
         }
 
-        .business-event.running .business-mini-status {
-          color: #9290ff;
-          background: rgba(99, 102, 241, 0.11);
-        }
-
-        .business-event.error .business-mini-status {
-          color: #ff7474;
-          background: rgba(239, 68, 68, 0.11);
-        }
-
-        .business-detail-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
-          gap: 16px;
-          margin-top: 16px;
-        }
-
-        .business-output-card {
-          padding: 22px;
-        }
-
-        .business-section-kicker {
-          margin: 0 0 13px;
-          color: #95a2ba;
-          font-size: 11px;
-          font-weight: 850;
-          letter-spacing: 0.13em;
-          text-transform: uppercase;
-        }
-
-        .business-output-title {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0;
-        }
-
-        .business-output-title-icon {
-          width: 40px;
-          height: 40px;
-          display: grid;
-          place-items: center;
-          flex: 0 0 auto;
+        .business-agent-detail,
+        .business-agent-update {
+          margin: 9px 0 0 56px;
+          padding: 11px 13px;
+          border: 1px solid rgba(127,127,127,.12);
           border-radius: 12px;
-          background: rgba(129, 121, 255, 0.11);
-          color: #9692ff;
+          background: rgba(255,255,255,.018);
         }
 
-        .business-output-title h4 {
+        .business-agent-detail p,
+        .business-agent-update p {
           margin: 0;
-          color: #f1f4f9;
-          font-size: 18px;
-          line-height: 1.2;
-        }
-
-        .business-output-title span {
-          display: block;
-          margin-top: 4px;
-          color: #8f9ab0;
+          color: #c4cad6;
           font-size: 12px;
+          line-height: 1.55;
         }
 
-        .business-detail-copy {
-          margin: 16px 0 0;
-          color: #abb5c7;
-          font-size: 13px;
-          line-height: 1.58;
+        .business-agent-update {
+          margin-top: 7px;
+          border-color: rgba(126,118,255,.12);
+          background: rgba(126,118,255,.035);
         }
 
-        .business-focus {
-          margin-top: 14px;
-          padding: 12px 13px;
-          border-radius: 13px;
-          border: 1px solid rgba(127, 127, 127, 0.13);
-          background: rgba(255, 255, 255, 0.018);
-        }
-
-        .business-focus strong {
-          display: block;
-          margin-bottom: 4px;
-          color: #e6eaf2;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .business-focus span {
-          color: #a6b0c1;
-          font-size: 12px;
-          line-height: 1.45;
-        }
-
-        .business-live-output {
-          margin-top: 15px;
-          padding: 13px 14px;
-          border-radius: 13px;
-          background: rgba(129, 121, 255, 0.07);
-          border: 1px solid rgba(129, 121, 255, 0.14);
-        }
-
-        .business-live-output strong {
-          display: block;
-          margin-bottom: 5px;
-          color: #b7b5ff;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .business-live-output p {
-          margin: 0;
-          color: #c5cad5;
-          font-size: 13px;
-          line-height: 1.5;
-          word-break: break-word;
-        }
-
-        .business-agent-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-top: 17px;
-          padding-top: 16px;
-          border-top: 1px solid rgba(127, 127, 127, 0.12);
-        }
-
-        .business-agent-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          min-height: 36px;
-          padding: 7px 11px;
-          border: 1px solid rgba(127, 127, 127, 0.18);
-          border-radius: 999px;
-          background: transparent;
-          color: #98a4b8;
-          cursor: pointer;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .business-agent-chip.active {
-          color: #fff;
-          border-color: transparent;
-          background: #8582ff;
-          box-shadow: 0 7px 18px rgba(99, 102, 241, 0.18);
-        }
-
-        .business-workflow-card {
-          margin-top: 16px;
-          padding: 22px;
-        }
-
-        .business-workflow-head {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 14px;
-          margin-bottom: 19px;
-        }
-
-        .business-workflow-head h3 {
-          margin: 0;
-          color: #f3f5fa;
-          font-size: 21px;
-          letter-spacing: -0.02em;
-        }
-
-        .business-workflow-head p {
-          margin: 6px 0 0;
-          color: #8f9ab0;
-          font-size: 13px;
-          line-height: 1.45;
-        }
-
-        .business-workflow-note {
-          color: #8d98ad;
-          font-size: 11px;
-          white-space: nowrap;
-        }
-
-        .business-flow {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .business-flow-node {
-          width: min(100%, 660px);
-          display: grid;
-          grid-template-columns: 48px minmax(0, 1fr) auto;
-          gap: 13px;
-          align-items: center;
-          padding: 14px 15px;
-          border: 1px solid rgba(127, 127, 127, 0.16);
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.018);
-          text-align: left;
-          color: inherit;
-          cursor: pointer;
-          font: inherit;
-        }
-
-        .business-flow-node:hover {
-          border-color: rgba(133, 130, 255, 0.38);
-        }
-
-        .business-flow-node.selected {
-          border-color: rgba(133, 130, 255, 0.55);
-          box-shadow: 0 0 0 2px rgba(133, 130, 255, 0.08);
-        }
-
-        .business-flow-icon {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          border-radius: 14px;
-          background: #232741;
-          color: #9b98ff;
-        }
-
-        .business-flow-node.completed .business-flow-icon {
-          background: rgba(34, 197, 94, 0.12);
-          color: #2bd66f;
-        }
-
-        .business-flow-node.running .business-flow-icon {
-          background: rgba(99, 102, 241, 0.12);
-          color: #9b98ff;
-        }
-
-        .business-flow-main strong {
-          display: block;
-          color: #f0f3f8;
-          font-size: 14px;
-        }
-
-        .business-flow-main span {
-          display: block;
-          margin-top: 4px;
-          color: #909bb0;
-          font-size: 12px;
-          line-height: 1.42;
-        }
-
-        .business-flow-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 5px 8px;
-          border-radius: 999px;
-          background: rgba(127, 127, 127, 0.08);
-          color: #929db1;
-          font-size: 10px;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .business-flow-node.completed .business-flow-status {
-          color: #28d66d;
-          background: rgba(34, 197, 94, 0.10);
-        }
-
-        .business-flow-node.running .business-flow-status {
-          color: #9692ff;
-          background: rgba(99, 102, 241, 0.10);
-        }
-
-        .business-flow-connector {
-          width: 1px;
-          height: 18px;
-          background: rgba(127, 127, 127, 0.25);
-        }
-
-        .business-parallel {
-          width: min(100%, 850px);
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
+        .business-agent-update .business-detail-label {
+          color: #9c99ff;
         }
 
         .business-parallel-label {
-          margin: 4px 0 8px;
-          color: #7f8aa0;
+          position: relative;
+          z-index: 2;
+          margin: 14px 0 10px 56px;
+          color: #858fa7;
           font-size: 10px;
           font-weight: 850;
-          letter-spacing: 0.12em;
+          letter-spacing: .13em;
           text-transform: uppercase;
         }
 
-        .business-parallel .business-flow-node {
-          width: 100%;
-          grid-template-columns: 36px minmax(0, 1fr);
-          padding: 11px;
-          gap: 9px;
+        .business-parallel {
+          position: relative;
+          z-index: 2;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0,1fr));
+          gap: 10px;
+          margin-left: 56px;
         }
 
-        .business-parallel .business-flow-icon {
-          width: 36px;
-          height: 36px;
+        .business-parallel .business-agent-card {
+          margin: 0;
+          padding: 15px;
+          border: 1px solid rgba(127,127,127,.15);
+          border-radius: 16px;
+          background: rgba(255,255,255,.018);
+        }
+
+        .business-parallel .business-agent-card-top {
+          grid-template-columns: 38px minmax(0,1fr);
+          gap: 10px;
+        }
+
+        .business-parallel .business-agent-icon {
+          width: 38px;
+          height: 38px;
+          box-shadow: none;
           border-radius: 11px;
         }
 
-        .business-parallel .business-flow-status {
-          grid-column: 2;
-          justify-self: start;
-          margin-top: 2px;
+        .business-parallel .business-agent-name-row {
+          display: block;
         }
 
-        .business-empty {
-          padding: 28px 20px;
-          text-align: center;
-          color: #8e9ab0;
+        .business-parallel .business-agent-status {
+          margin-top: 7px;
+        }
+
+        .business-parallel .business-agent-detail,
+        .business-parallel .business-agent-update {
+          margin-left: 48px;
+        }
+
+        .business-final-report-ready {
+          margin-top: 15px;
+          padding: 15px 17px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          border: 1px solid rgba(34,197,94,.18);
+          border-radius: 16px;
+          background: rgba(34,197,94,.055);
+        }
+
+        .business-final-report-kicker {
+          display: block;
+          margin-bottom: 4px;
+          color: #29d66c;
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+
+        .business-final-report-ready strong {
+          color: var(--text-primary, #eef2f8);
           font-size: 13px;
-          line-height: 1.5;
         }
 
-        /* ---------------- LIGHT MODE ---------------- */
-
-        html.light .business-objective,
-        html.light .business-activity-card {
-          background: #ffffff !important;
-          border-color: #d8deea !important;
-          box-shadow: 0 8px 25px rgba(36, 51, 78, 0.06);
+        .business-final-report-ready button {
+          border: 0;
+          border-radius: 10px;
+          padding: 9px 12px;
+          background: #7671f7;
+          color: white;
+          font: inherit;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
         }
 
-        html.light .business-objective p,
-        html.light .business-event-title strong,
-        html.light .business-card-heading h3,
-        html.light .business-output-title h4,
-        html.light .business-workflow-head h3,
-        html.light .business-flow-main strong {
-          color: #111a2d !important;
+        .business-empty-state {
+          padding: 32px 10px;
+          text-align: center;
+          color: #8d99b0;
+          font-size: 13px;
         }
 
-        html.light .business-objective-label,
-        html.light .business-card-heading p,
-        html.light .business-event-role,
-        html.light .business-event-body p,
-        html.light .business-workflow-head p,
-        html.light .business-workflow-note,
-        html.light .business-flow-main span,
-        html.light .business-empty,
-        html.light .business-status-copy {
-          color: #617089 !important;
+        html.light .business-activity-card,
+        html.light .business-objective {
+          background: #ffffff;
+          border-color: rgba(20,30,50,.11);
+          box-shadow: 0 10px 30px rgba(25,35,55,.055);
         }
 
-        html.light .business-timeline::before,
-        html.light .business-flow-connector {
-          background: #d7deeb;
+        html.light .business-agent-list::before {
+          background: rgba(88,80,220,.20);
         }
 
-        html.light .business-event-icon {
-          box-shadow: 0 0 0 7px #ffffff;
-          background: #eef1fb;
-          color: #625ee0;
+        html.light .business-agent-icon {
+          background: #f0f1ff;
+          border-color: rgba(88,80,220,.10);
+          box-shadow: 0 0 0 7px #fff;
         }
 
-        html.light .business-event.completed .business-event-icon {
-          background: #e8f8ef;
-          color: #159447;
+        html.light .business-agent-card.completed .business-agent-icon {
+          background: #eafaf0;
         }
 
-        html.light .business-event.error .business-event-icon {
+        html.light .business-agent-card.error .business-agent-icon {
           background: #fff0f0;
-          color: #d83c3c;
         }
 
-        html.light .business-event.running .business-event-icon {
-          box-shadow: 0 0 0 7px #ffffff;
+        html.light .business-agent-detail,
+        html.light .business-agent-update,
+        html.light .business-parallel .business-agent-card {
+          background: #f8f9fc;
+          border-color: rgba(20,30,50,.09);
         }
 
-        html.light .business-event-body p,
-        html.light .business-detail-copy,
-        html.light .business-live-output p {
-          color: #4f5e75 !important;
+        html.light .business-agent-name-row strong,
+        html.light .business-objective p,
+        html.light .business-final-report-ready strong {
+          color: #182033;
         }
 
-        html.light .business-output-title-icon {
-          background: #eef0ff;
-          color: #625ee0;
+        html.light .business-agent-detail p,
+        html.light .business-agent-update p {
+          color: #536078;
         }
 
-        html.light .business-focus,
-        html.light .business-live-output,
-        html.light .business-flow-node {
-          background: #f8faff;
-          border-color: #dce2ee;
-        }
-
-        html.light .business-focus strong {
-          color: #25324a;
-        }
-
-        html.light .business-focus span {
-          color: #5c6a80;
-        }
-
-        html.light .business-live-output {
-          background: #f2f2ff;
-          border-color: #dcdcff;
-        }
-
-        html.light .business-live-output strong {
-          color: #625ee0;
-        }
-
-        html.light .business-agent-chips {
-          border-top-color: #e1e5ed;
-        }
-
-        html.light .business-agent-chip {
-          border-color: #d6dce8;
-          color: #526078;
-          background: #fff;
-        }
-
-        html.light .business-agent-chip.active {
-          color: #fff;
-          background: #716df0;
-        }
-
-        html.light .business-flow-icon {
-          background: #eef1fb;
-          color: #625ee0;
-        }
-
-        html.light .business-flow-node.completed .business-flow-icon {
-          background: #e8f8ef;
-          color: #159447;
-        }
-
-        html.light .business-flow-node.selected {
-          border-color: #a9a5ff;
-          box-shadow: 0 0 0 2px rgba(113, 109, 240, 0.08);
-        }
-
-        html.light .business-flow-main span {
-          color: #617089 !important;
-        }
-
-        @media (max-width: 920px) {
-          .business-detail-grid {
-            grid-template-columns: 1fr;
-          }
-
+        @media (max-width: 820px) {
           .business-parallel {
             grid-template-columns: 1fr;
-            width: min(100%, 660px);
-          }
-
-          .business-parallel .business-flow-node {
-            grid-template-columns: 40px minmax(0, 1fr) auto;
-            padding: 13px;
-          }
-
-          .business-parallel .business-flow-icon {
-            width: 40px;
-            height: 40px;
-          }
-
-          .business-parallel .business-flow-status {
-            grid-column: auto;
-            justify-self: auto;
-            margin-top: 0;
           }
         }
 
         @media (max-width: 640px) {
           .business-activity-page {
-            padding-bottom: 34px;
+            padding-bottom: 30px;
           }
 
           .business-objective {
-            margin: 13px 0 14px;
-            padding: 15px;
-            border-radius: 16px;
+            margin-top: 12px;
+            padding: 14px;
+            border-radius: 15px;
           }
 
-          .business-objective p {
-            font-size: 13px;
+          .business-activity-heading {
+            padding: 17px 15px 14px;
           }
 
-          .business-status-row {
-            align-items: flex-start;
-            flex-direction: column;
-            margin-bottom: 13px;
+          .business-agent-list {
+            padding: 13px 12px 19px;
           }
 
-          .business-activity-card {
-            border-radius: 18px;
+          .business-agent-list::before {
+            left: 32px;
+            top: 34px;
+            bottom: 34px;
           }
 
-          .business-card-heading {
-            padding: 18px 15px 14px;
+          .business-agent-card-top {
+            grid-template-columns: 34px minmax(0,1fr);
+            gap: 11px;
           }
 
-          .business-card-heading h3,
-          .business-workflow-head h3 {
-            font-size: 19px;
+          .business-agent-icon {
+            width: 34px;
+            height: 34px;
+            box-shadow: 0 0 0 6px var(--card-bg, #15171d);
           }
 
-          .business-timeline {
-            padding: 15px 14px 19px;
+          html.light .business-agent-icon {
+            box-shadow: 0 0 0 6px #fff;
           }
 
-          .business-timeline::before {
-            left: 34px;
-            top: 36px;
-            bottom: 35px;
-          }
-
-          .business-event {
-            grid-template-columns: 36px minmax(0, 1fr);
-            gap: 10px;
-            padding: 9px 0 17px;
-          }
-
-          .business-event-icon {
-            width: 36px;
-            height: 36px;
-            box-shadow: 0 0 0 6px #15171d;
-          }
-
-          html.light .business-event-icon {
-            box-shadow: 0 0 0 6px #ffffff;
-          }
-
-          .business-event-time {
-            display: none;
-          }
-
-          .business-event-title strong {
+          .business-agent-name-row strong {
             font-size: 15px;
           }
 
-          .business-event-body p {
-            font-size: 12.5px;
+          .business-agent-detail,
+          .business-agent-update {
+            margin-left: 45px;
+            padding: 10px 11px;
           }
 
-          .business-detail-grid {
-            margin-top: 13px;
-            gap: 13px;
-          }
-
-          .business-output-card,
-          .business-workflow-card {
-            padding: 17px 14px;
-          }
-
-          .business-output-title h4 {
-            font-size: 16px;
-          }
-
-          .business-workflow-head {
-            display: block;
-            margin-bottom: 15px;
-          }
-
-          .business-workflow-note {
-            display: block;
-            margin-top: 8px;
-          }
-
-          .business-flow-node {
-            grid-template-columns: 42px minmax(0, 1fr);
-            gap: 10px;
-            padding: 12px;
-          }
-
-          .business-flow-status {
-            grid-column: 2;
-            justify-self: start;
-            margin-top: 2px;
-          }
-
-          .business-flow-icon {
-            width: 42px;
-            height: 42px;
+          .business-parallel-label {
+            margin-left: 45px;
           }
 
           .business-parallel {
-            gap: 8px;
+            margin-left: 45px;
           }
 
-          .business-parallel .business-flow-node {
-            grid-template-columns: 40px minmax(0, 1fr);
+          .business-parallel .business-agent-detail,
+          .business-parallel .business-agent-update {
+            margin-left: 0;
           }
 
-          .business-parallel .business-flow-status {
-            grid-column: 2;
+          .business-final-report-ready {
+            align-items: flex-start;
+            flex-direction: column;
           }
 
-          .business-agent-chips {
-            gap: 7px;
-          }
-
-          .business-agent-chip {
-            min-height: 35px;
-            padding: 7px 10px;
+          .business-final-report-ready button {
+            width: 100%;
           }
         }
 
-        @media (max-width: 380px) {
-          .business-event {
-            grid-template-columns: 32px minmax(0, 1fr);
+        @media (max-width: 390px) {
+          .business-agent-status {
+            font-size: 9px;
+            padding: 4px 7px;
           }
 
-          .business-event-icon {
-            width: 32px;
-            height: 32px;
-          }
-
-          .business-timeline::before {
-            left: 30px;
-          }
-
-          .business-flow-node {
-            grid-template-columns: 38px minmax(0, 1fr);
-            padding: 11px;
-          }
-
-          .business-flow-icon {
-            width: 38px;
-            height: 38px;
+          .business-agent-role,
+          .business-agent-detail p,
+          .business-agent-update p {
+            font-size: 11px;
           }
         }
       `}</style>
 
       <div className="business-objective">
-        <span className="business-objective-label">
-          Business research objective
-        </span>
-        <p>
-          {query ||
-            'Your business research request is ready for the agent workflow.'}
-        </p>
+        <span className="business-objective-label">Research objective</span>
+        <p>{query || 'Your business research request will appear here.'}</p>
       </div>
 
-      <div className="business-status-row">
-        <span className="business-status-copy">
+      <div className="business-run-summary">
+        <span>
           {researching
-            ? activeAgentMessage
-            : completedCount === agents.length
-            ? 'All business research agents completed successfully.'
-            : 'Live execution status for your business research workflow.'}
+            ? 'Agents are working on your business research...'
+            : executedAgents.length
+              ? `${completedCount} of ${agents.length} business agents completed`
+              : 'Waiting to start the business research workflow'}
         </span>
 
-        <span className="business-status-pill">
+        <span className="business-run-pill">
           <span className="dot" />
-          {researching ? 'Research running' : 'System ready'}
+          {runningCount > 0 ? `${runningCount} running` : 'System online'}
         </span>
       </div>
 
       <section className="business-activity-card">
-        <div className="business-card-heading">
+        <div className="business-activity-heading">
           <h3>Agent Activity</h3>
           <p>
-            Follow each business intelligence stage and open an agent to view
-            its latest execution message.
+            Each agent shows exactly what it is responsible for and what it
+            actually did during this business research run.
           </p>
         </div>
 
-        <div className="business-timeline">
-          {executedAgents.length === 0 ? (
-            <div className="business-empty">
-              Start a research request to see Planner, Market, Company,
-              Competitor, Analysis, Writer, Reviewer and Final Report agents
-              execute here.
+        {executedAgents.length === 0 ? (
+          <div className="business-empty-state">
+            Start a research request to see the business agents working live.
+          </div>
+        ) : (
+          <div className="business-agent-list">
+            <div className="business-sequential-wrap">
+              {firstAgent &&
+                executedAgents.some(item => item.name === firstAgent.name) &&
+                renderAgentCard(firstAgent)}
             </div>
-          ) : (
-            executedAgents.map(agent => {
-              const progress = agentProgress[agent.name]
-              const status = progress?.status || 'waiting'
-              const details = businessDetails[agent.name]
-              const selectedClass =
-                effectiveSelected === agent.name ? 'selected' : ''
 
-              return (
-                <button
-                  key={agent.name}
-                  type="button"
-                  className={`business-event ${status} ${selectedClass}`}
-                  onClick={() => setSelectedAgent(agent.name)}
-                  aria-pressed={effectiveSelected === agent.name}
-                >
-                  <span className="business-event-icon">
-                    {iconFor(agent)}
-                  </span>
-
-                  <span className="business-event-body">
-                    <span className="business-event-title">
-                      <strong>{agent.name}</strong>
-                      <span className="business-event-role">
-                        {details?.role}
-                      </span>
-                    </span>
-
-                    <p>
-                      {progress?.message ||
-                        details?.detail ||
-                        agent.description}
-                    </p>
-
-                    <span className="business-mini-status">
-                      <span className="dot" />
-                      {statusLabel(status)}
-                    </span>
-                  </span>
-
-                  <span className="business-event-time">
-                    {status === 'running' ? 'Now' : status === 'completed' ? 'Done' : ''}
-                  </span>
-                </button>
-              )
-            })
-          )}
-        </div>
-      </section>
-
-      <div className="business-detail-grid">
-        <section className="business-activity-card business-output-card">
-          <div className="business-section-kicker">
-            Agent output
-          </div>
-
-          {selected ? (
-            <>
-              <div className="business-output-title">
-                <span className="business-output-title-icon">
-                  {iconFor(selected)}
-                </span>
-
-                <span>
-                  <h4>{selected.name}</h4>
-                  <span>
-                    {businessDetails[selected.name]?.role ||
-                      selected.description}
-                  </span>
-                </span>
-              </div>
-
-              <p className="business-detail-copy">
-                {businessDetails[selected.name]?.detail ||
-                  selected.description}
-              </p>
-
-              <div className="business-focus">
-                <strong>Business focus</strong>
-                <span>
-                  {businessDetails[selected.name]?.focus ||
-                    'Business research and analysis'}
-                </span>
-              </div>
-
-              <div className="business-live-output">
-                <strong>Latest execution message</strong>
-                <p>
-                  {selectedProgress?.message ||
-                    'Waiting for this agent to start.'}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="business-empty">
-              Select an executed agent above to view its business role and
-              latest output.
-            </div>
-          )}
-
-          <div className="business-agent-chips">
-            {executedAgents.map(agent => (
-              <button
-                key={agent.name}
-                type="button"
-                className={`business-agent-chip ${
-                  effectiveSelected === agent.name ? 'active' : ''
-                }`}
-                onClick={() => setSelectedAgent(agent.name)}
-              >
-                {iconFor(agent)}
-                {shortName(agent.name)}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="business-activity-card business-output-card">
-          <div className="business-section-kicker">
-            Current stage
-          </div>
-
-          <div className="business-output-title">
-            <span className="business-output-title-icon">
-              <Activity size={19} />
-            </span>
-
-            <span>
-              <h4>
-                {selected?.name || 'Research workflow'}
-              </h4>
-              <span>
-                {selectedProgress
-                  ? statusLabel(selectedProgress.status)
-                  : 'Waiting for research'}
-              </span>
-            </span>
-          </div>
-
-          <p className="business-detail-copy">
-            {selected
-              ? selectedProgress?.message ||
-                businessDetails[selected.name]?.detail ||
-                selected.description
-              : 'Run a business research request to activate the agent workflow.'}
-          </p>
-
-          <div className="business-focus">
-            <strong>Workflow coverage</strong>
-            <span>
-              Market intelligence → Company intelligence → Competitive
-              intelligence → Business analysis → Report generation → Quality
-              review → Final delivery
-            </span>
-          </div>
-
-          <div className="business-live-output">
-            <strong>Pipeline status</strong>
-            <p>
-              {completedCount} of {agents.length} business agents completed.
-              {runningAgents.length > 0
-                ? ` ${runningAgents.length} agent currently running.`
-                : ''}
-            </p>
-          </div>
-        </section>
-      </div>
-
-      <section className="business-activity-card business-workflow-card">
-        <div className="business-workflow-head">
-          <div>
-            <h3>Business Research Workflow</h3>
-            <p>
-              The complete agent pipeline used to turn one business question
-              into a reviewed final report.
-            </p>
-          </div>
-
-          <span className="business-workflow-note">
-            Live status from FastAPI SSE
-          </span>
-        </div>
-
-        <div className="business-flow">
-          <button
-            type="button"
-            className={`business-flow-node ${getStatus('Planner Agent')} ${
-              effectiveSelected === 'Planner Agent' ? 'selected' : ''
-            }`}
-            onClick={() => setSelectedAgent('Planner Agent')}
-          >
-            <span className="business-flow-icon">
-              <Clipboard size={19} />
-            </span>
-
-            <span className="business-flow-main">
-              <strong>Planner Agent</strong>
-              <span>
-                Understands the objective and creates the research plan.
-              </span>
-            </span>
-
-            <span className="business-flow-status">
-              <span className="dot" />
-              {statusLabel(getStatus('Planner Agent'))}
-            </span>
-          </button>
-
-          <div className="business-flow-connector" />
-
-          <div className="business-parallel-label">
-            Parallel business intelligence
-          </div>
-
-          <div className="business-parallel">
-            {workflowRows
-              .filter(row => row.group === 'research')
-              .map(researchRow => {
-                const researchStatus = getStatus(researchRow.name)
-                const ResearchIcon = researchRow.icon
-
-                return (
-                  <button
-                    key={researchRow.name}
-                    type="button"
-                    className={`business-flow-node ${researchStatus} ${
-                      effectiveSelected === researchRow.name
-                        ? 'selected'
-                        : ''
-                    }`}
-                    onClick={() => setSelectedAgent(researchRow.name)}
-                  >
-                    <span className="business-flow-icon">
-                      <ResearchIcon size={17} />
-                    </span>
-
-                    <span className="business-flow-main">
-                      <strong>{researchRow.name}</strong>
-                      <span>{researchRow.subtitle}</span>
-                    </span>
-
-                    <span className="business-flow-status">
-                      <span className="dot" />
-                      {statusLabel(researchStatus)}
-                    </span>
-                  </button>
-                )
-              })}
-          </div>
-
-          <div className="business-flow-connector" />
-
-          {workflowRows
-            .filter(
-              row =>
-                row.group !== 'research' &&
-                row.name !== 'Planner Agent'
-            )
-            .map((row, index, remainingRows) => {
-              const Icon = row.icon
-              const status = getStatus(row.name)
-
-              return (
-                <div
-                  key={row.name}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className={`business-flow-node ${status} ${
-                      effectiveSelected === row.name ? 'selected' : ''
-                    }`}
-                    onClick={() => setSelectedAgent(row.name)}
-                  >
-                    <span className="business-flow-icon">
-                      <Icon size={19} />
-                    </span>
-
-                    <span className="business-flow-main">
-                      <strong>{row.name}</strong>
-                      <span>{row.subtitle}</span>
-                    </span>
-
-                    <span className="business-flow-status">
-                      <span className="dot" />
-                      {statusLabel(status)}
-                    </span>
-                  </button>
-
-                  {index < remainingRows.length - 1 && (
-                    <div className="business-flow-connector" />
-                  )}
+            {researchAgents.some(agent =>
+              executedAgents.some(item => item.name === agent.name)
+            ) && (
+              <>
+                <div className="business-parallel-label">
+                  Parallel business intelligence
                 </div>
-              )
-            })}
-        </div>
+
+                <div className="business-parallel">
+                  {researchAgents
+                    .filter(agent =>
+                      executedAgents.some(item => item.name === agent.name)
+                    )
+                    .map(renderAgentCard)}
+                </div>
+
+                <div className="business-sequential-wrap business-final-agents">
+                  {finalAgents
+                    .filter(agent =>
+                      executedAgents.some(item => item.name === agent.name)
+                    )
+                    .map(renderAgentCard)}
+                </div>
+              </>
+            )}
+
+            {!researchAgents.some(agent =>
+              executedAgents.some(item => item.name === agent.name)
+            ) && (
+              <div className="business-sequential-wrap business-final-agents">
+                {finalAgents
+                  .filter(agent =>
+                    executedAgents.some(item => item.name === agent.name)
+                  )
+                  .map(renderAgentCard)}
+              </div>
+            )}
+          </div>
+        )}
       </section>
+
+      {agentProgress['Final Report Agent']?.status === 'completed' && (
+        <section className="business-final-report-ready">
+          <div>
+            <span className="business-final-report-kicker">
+              Final report ready
+            </span>
+            <strong>Your reviewed business research report is ready.</strong>
+          </div>
+          <span style={{ color: '#29d66c', fontSize: 12, fontWeight: 800 }}>
+            Opening report…
+          </span>
+        </section>
+      )}
     </div>
   )
 }
