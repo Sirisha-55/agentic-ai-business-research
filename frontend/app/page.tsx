@@ -370,6 +370,8 @@ function Sidebar({
   setMobileOpen,
   onBack,
   canGoBack,
+  theme,
+  setTheme,
 }: {
   view: View
   setView: (v: View) => void
@@ -379,6 +381,8 @@ function Sidebar({
   setMobileOpen: (v: boolean) => void
   onBack: () => void
   canGoBack: boolean
+  theme: Theme
+  setTheme: (value: Theme) => void
 }) {
   return (
     <aside
@@ -415,6 +419,63 @@ function Sidebar({
         /* Collapsed bar shows icons only. */
         .app-shell aside.sidebar.collapsed .main-nav button {
           justify-content: center;
+        }
+
+        .sidebar-theme-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px 12px 10px;
+        }
+
+        .sidebar-theme-label {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          color: #8f99ad;
+        }
+
+        .sidebar.collapsed .sidebar-theme-row {
+          justify-content: center;
+          padding-left: 6px;
+          padding-right: 6px;
+        }
+
+        .theme-switcher {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 3px;
+          border: 1px solid rgba(127,127,127,.22);
+          border-radius: 11px;
+          background: rgba(127,127,127,.08);
+        }
+
+        .theme-switcher button {
+          width: 30px;
+          height: 28px;
+          border: 0;
+          border-radius: 8px;
+          background: transparent;
+          color: #8f99ad;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .theme-switcher button.active {
+          color: #111827;
+          background: #ffffff;
+          box-shadow: 0 1px 5px rgba(0,0,0,.18);
+        }
+
+        .theme-dark .theme-switcher button.active {
+          color: #eef2ff;
+          background: #252b3b;
+          box-shadow: none;
         }
       `}</style>
 
@@ -498,6 +559,11 @@ function Sidebar({
 
       <div className="sidebar-bottom">
 
+        <div className="sidebar-theme-row">
+          {!collapsed && <span className="sidebar-theme-label">Theme</span>}
+          <ThemeSwitcher theme={theme} setTheme={setTheme} />
+        </div>
+
         <button
           className="collapse-btn"
           onClick={() =>
@@ -544,11 +610,6 @@ function Topbar({
   onBack: () => void
   canGoBack: boolean
 }) {
-  // Keep the theme props for backwards compatibility with the existing
-  // page state, but use the cleaner reference-style header.
-  void theme
-  void setTheme
-
   return (
     <header className="topbar reference-topbar">
       <style jsx global>{`
@@ -556,7 +617,7 @@ function Topbar({
           min-height: 78px;
           padding: 14px 24px;
           border-bottom: 1px solid rgba(127, 127, 127, 0.16);
-          background: rgba(8, 10, 16, 0.88);
+          background: var(--topbar-bg);
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
         }
@@ -1117,6 +1178,20 @@ export default function Page() {
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [])
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('business-research-theme')
+    if (saved === 'light' || saved === 'dark') {
+      setThemeState(saved)
+    }
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(theme)
+    window.localStorage.setItem('business-research-theme', theme)
+  }, [theme])
 
   const [collapsed, setCollapsed] =
     useState(false)
@@ -1759,15 +1834,138 @@ export default function Page() {
   // -------------------------------------------------------
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell theme-${theme}`}>
 
       <style jsx global>{`
         :root {
           --accent-red: #b83a3a;
           --topbar-bg: rgba(10, 14, 23, 0.9);
         }
+        .theme-dark { background: #090b11; color: #eef2ff; }
+
         html.dark { --accent-red: #e0625f; }
-        html.light { --topbar-bg: rgba(223, 230, 242, 0.92); --accent-red: #b83a3a; }
+        html.light { --topbar-bg: rgba(248, 250, 252, 0.94); --accent-red: #4f46e5; }
+
+        /* -------------------------------------------------------
+           LIGHT THEME
+           The activity/research UI keeps the same layout in both
+           themes; only surfaces, borders and text contrast change.
+        ------------------------------------------------------- */
+        .theme-light {
+          color: #172033;
+          background: #f5f7fb;
+        }
+        .theme-light .sidebar,
+        .theme-light .main-shell,
+        .theme-light .content,
+        .theme-light .business-activity-page,
+        .theme-light .business-activity-card,
+        .theme-light .business-agent-card,
+        .theme-light .workspace-query-card,
+        .theme-light .workspace-node,
+        .theme-light .stat-card,
+        .theme-light .query-card,
+        .theme-light .report-tile,
+        .theme-light .history-row,
+        .theme-light .table-card,
+        .theme-light .aside-card,
+        .theme-light .insight-card,
+        .theme-light .example-card,
+        .theme-light .report-nav,
+        .theme-light .report-viewer,
+        .theme-light .report-toolbar {
+          background: #ffffff !important;
+          color: #172033;
+          border-color: #dfe4ee !important;
+        }
+        .theme-light .topbar,
+        .theme-light .reference-topbar {
+          background: rgba(248, 250, 252, .94) !important;
+          color: #172033;
+          border-bottom-color: #dfe4ee !important;
+        }
+        .theme-light .main-nav button,
+        .theme-light .collapse-btn,
+        .theme-light .sidebar-theme-label,
+        .theme-light .reference-eyebrow,
+        .theme-light .business-agent-role,
+        .theme-light .business-agent-update,
+        .theme-light .business-objective-label,
+        .theme-light .business-parallel-label,
+        .theme-light .report-meta,
+        .theme-light .report-id-quiet,
+        .theme-light .stat-copy span,
+        .theme-light .stat-copy small,
+        .theme-light .empty-state p {
+          color: #647089 !important;
+        }
+        .theme-light .main-nav button {
+          background: transparent;
+          color: #334155;
+        }
+        .theme-light .main-nav button:hover {
+          background: #eef2ff;
+          color: #4338ca;
+        }
+        .theme-light .main-nav button.active {
+          background: #eef2ff;
+          color: #4338ca;
+        }
+        .theme-light .reference-page-title,
+        .theme-light .business-agent-name,
+        .theme-light .business-detail-label,
+        .theme-light .business-objective,
+        .theme-light .business-final-report-ready,
+        .theme-light .report-content,
+        .theme-light .report-content h1,
+        .theme-light .report-content h2,
+        .theme-light .report-content h3,
+        .theme-light .report-content strong,
+        .theme-light .stat-copy strong {
+          color: #172033 !important;
+        }
+        .theme-light .business-run-pill,
+        .theme-light .business-agent-status,
+        .theme-light .status {
+          background: #ecfdf3;
+          color: #15803d;
+          border-color: #bbf7d0;
+        }
+        .theme-light .business-agent-icon {
+          background: #ecfdf3 !important;
+          color: #16a34a !important;
+          border-color: #bbf7d0 !important;
+        }
+        .theme-light .system-online-pill {
+          background: #ffffff !important;
+          color: #475569 !important;
+          border-color: #dfe4ee !important;
+        }
+        .theme-light .report-nav a {
+          color: #647089;
+        }
+        .theme-light .report-nav a.active {
+          background: #eef2ff;
+          color: #4338ca;
+        }
+        .theme-light .primary-btn {
+          background: #4f46e5;
+          color: #fff;
+        }
+        .theme-light .outline-btn,
+        .theme-light .text-btn {
+          color: #334155;
+          border-color: #dfe4ee;
+          background: #fff;
+        }
+        .theme-light .business-final-report-ready {
+          border-color: #c7d2fe !important;
+          background: #f5f7ff !important;
+        }
+        .theme-light .workspace-banner {
+          background: linear-gradient(135deg, #ffffff, #f5f7ff) !important;
+          border-color: #dfe4ee !important;
+        }
 
         /* small red accents */
         .brand-dot { color: var(--accent-red); }
@@ -2126,6 +2324,8 @@ export default function Page() {
         setMobileOpen={setMobileOpen}
         onBack={goBack}
         canGoBack={canGoBack}
+        theme={theme}
+        setTheme={setTheme}
       />
 
       <div className={`main-shell ${view === 'workspace' ? 'workspace-shell' : ''}`}>
