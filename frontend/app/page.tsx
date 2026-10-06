@@ -1074,7 +1074,7 @@ function EmptyState({
 export default function Page() {
 
   const [theme, setThemeState] =
-    useState<Theme>('dark')
+    useState<Theme>('light')
 
   const [view, setViewState] =
     useState<View>('dashboard')
@@ -1812,7 +1812,7 @@ export default function Page() {
         .pl-flow { padding-top: 20px; }
 
         /* darker, higher-contrast light theme */
-        html.light body, html.light .app-shell { background: #dfe6f2 !important; color: #0e1a33; }
+        html.light body, html.light .app-shell { background: #eef2f8 !important; color: #0e1a33; }
         html.light .sidebar {
           background: #13213f !important; border-color: #0c1830 !important; color: #e6ecf8;
         }
@@ -2803,21 +2803,28 @@ function Workspace({
     agent => agentProgress[agent.name]?.status !== 'waiting'
   )
 
-  const completedCount = agents.filter(
-    agent => agentProgress[agent.name]?.status === 'completed'
-  ).length
-
   const runningAgents = agents.filter(
     agent => agentProgress[agent.name]?.status === 'running'
   )
 
-  const activeName = runningAgents[0]?.name || executedAgents[executedAgents.length - 1]?.name || null
+  const completedCount = agents.filter(
+    agent => agentProgress[agent.name]?.status === 'completed'
+  ).length
+
+  const activeName =
+    runningAgents[0]?.name ||
+    executedAgents[executedAgents.length - 1]?.name ||
+    null
+
   const effectiveSelected =
-    selectedAgent && executedAgents.some(agent => agent.name === selectedAgent)
+    selectedAgent &&
+    executedAgents.some(agent => agent.name === selectedAgent)
       ? selectedAgent
       : activeName
 
-  const selected = agents.find(agent => agent.name === effectiveSelected) || null
+  const selected =
+    agents.find(agent => agent.name === effectiveSelected) || null
+
   const selectedProgress = selected
     ? agentProgress[selected.name]
     : undefined
@@ -2843,597 +2850,1135 @@ function Workspace({
     return <Icon size={17} />
   }
 
-  const workstreams = [
+  const businessDetails: Record<string, {
+    role: string
+    detail: string
+    focus: string
+  }> = {
+    'Planner Agent': {
+      role: 'Research planning',
+      detail:
+        'Understands the business question and breaks it into focused research tasks before execution begins.',
+      focus:
+        'Research objective, scope, questions and execution order',
+    },
+    'Market Agent': {
+      role: 'Market intelligence',
+      detail:
+        'Researches market conditions, demand, trends, growth drivers, customer signals and relevant industry developments.',
+      focus:
+        'Market trends, demand, growth drivers and industry signals',
+    },
+    'Company Agent': {
+      role: 'Company intelligence',
+      detail:
+        'Builds a focused view of the target company, including positioning, business direction, products and strategic context.',
+      focus:
+        'Company profile, positioning, products and strategy',
+    },
+    'Competitor Agent': {
+      role: 'Competitive intelligence',
+      detail:
+        'Investigates major competitors, competitive strengths, differentiators, threats and market gaps.',
+      focus:
+        'Competitors, differentiation, threats and white space',
+    },
+    'Analysis Agent': {
+      role: 'Business analysis',
+      detail:
+        'Combines the research findings and turns evidence into trends, opportunities, risks and decision-ready insights.',
+      focus:
+        'Patterns, opportunities, risks and strategic interpretation',
+    },
+    'Writer Agent': {
+      role: 'Report generation',
+      detail:
+        'Transforms the analyzed findings into a structured business research report with clear sections and sources.',
+      focus:
+        'Executive brief, market view, competition, opportunities and risks',
+    },
+    'Reviewer Agent': {
+      role: 'Quality review',
+      detail:
+        'Reviews the draft for alignment, evidence quality, clarity, repetition, neutrality and missing business insights.',
+      focus:
+        'Accuracy, completeness, evidence, structure and readability',
+    },
+    'Final Report Agent': {
+      role: 'Final delivery',
+      detail:
+        'Produces the final reviewed business research report while preserving the useful evidence and business insights.',
+      focus:
+        'Final report quality, structure and decision-ready output',
+    },
+  }
+
+  const workflowRows = [
     {
-      title: 'Market landscape',
-      description: 'Research market trends, demand signals, growth drivers and relevant industry developments.',
+      name: 'Planner Agent',
+      subtitle: 'Understands the objective & creates the research plan',
+      icon: Clipboard,
+    },
+    {
+      name: 'Market Agent',
+      subtitle: 'Market trends, demand & industry intelligence',
       icon: TrendingUp,
+      group: 'research',
     },
     {
-      title: 'Company analysis',
-      description: 'Build a focused view of the target company, positioning, performance and strategic direction.',
+      name: 'Company Agent',
+      subtitle: 'Target company, positioning & business direction',
       icon: Building2,
+      group: 'research',
     },
     {
-      title: 'Competitive landscape',
-      description: 'Identify major competitors, threats, differentiators and potential market white space.',
+      name: 'Competitor Agent',
+      subtitle: 'Competitors, differentiation & market gaps',
       icon: Compass,
+      group: 'research',
     },
     {
-      title: 'Business insights',
-      description: 'Combine evidence into opportunities, risks and decision-ready recommendations.',
-      icon: Sparkles,
+      name: 'Analysis Agent',
+      subtitle: 'Combines findings into opportunities & risks',
+      icon: BarChart3,
+    },
+    {
+      name: 'Writer Agent',
+      subtitle: 'Creates the structured business research report',
+      icon: FileText,
+    },
+    {
+      name: 'Reviewer Agent',
+      subtitle: 'Checks evidence, quality, completeness & clarity',
+      icon: CheckCircle2,
+    },
+    {
+      name: 'Final Report Agent',
+      subtitle: 'Delivers the final reviewed report',
+      icon: FileBarChart,
     },
   ]
 
+  const getStatus = (name: string): AgentExecutionStatus =>
+    agentProgress[name]?.status || 'waiting'
+
   return (
-    <div className="view-enter activity-page">
+    <div className="view-enter activity-page business-activity-page">
       <style jsx global>{`
-        .activity-page {
-          max-width: 1080px;
+        .business-activity-page {
+          width: 100%;
+          max-width: 1120px;
           margin: 0 auto;
-          padding-bottom: 48px;
+          padding: 0 0 56px;
         }
 
-        .activity-objective {
-          margin: 20px 0 18px;
-          padding: 16px 18px;
+        .business-objective {
+          margin: 18px 0 16px;
+          padding: 18px 20px;
           border: 1px solid rgba(127, 127, 127, 0.18);
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.025);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.035);
         }
 
-        .activity-objective-label,
-        .activity-section-label {
+        .business-objective-label {
           display: block;
-          color: #98a5bd;
+          margin-bottom: 8px;
+          color: #8794ad;
           font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.12em;
+          font-weight: 850;
+          letter-spacing: 0.13em;
           text-transform: uppercase;
-          margin-bottom: 7px;
         }
 
-        .activity-objective p {
+        .business-objective p {
           margin: 0;
-          color: #eef1f7;
+          color: #edf1f8;
           font-size: 15px;
           line-height: 1.55;
+          word-break: break-word;
         }
 
-        .activity-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
-          gap: 18px;
-          align-items: start;
-        }
-
-        .activity-card {
-          border: 1px solid rgba(127, 127, 127, 0.18);
-          border-radius: 20px;
-          background: #15171d;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-          overflow: hidden;
-        }
-
-        .activity-card-header {
-          padding: 22px 22px 16px;
-          border-bottom: 1px solid rgba(127, 127, 127, 0.12);
-        }
-
-        .activity-card-header h3 {
-          margin: 0;
-          color: #f5f7fb;
-          font-size: 22px;
-          line-height: 1.15;
-          letter-spacing: -0.025em;
-        }
-
-        .activity-card-header p {
-          margin: 7px 0 0;
-          color: #8f9ab0;
-          font-size: 14px;
-        }
-
-        .activity-timeline {
-          position: relative;
-          padding: 20px 22px 24px;
-        }
-
-        .activity-timeline::before {
-          content: '';
-          position: absolute;
-          left: 40px;
-          top: 34px;
-          bottom: 34px;
-          width: 1px;
-          background: rgba(127, 108, 255, 0.24);
-        }
-
-        .activity-event {
-          position: relative;
-          display: grid;
-          grid-template-columns: 38px minmax(0, 1fr) auto;
-          gap: 14px;
-          align-items: start;
-          padding: 10px 0 18px;
-          z-index: 1;
-        }
-
-        .activity-event:last-child {
-          padding-bottom: 4px;
-        }
-
-        .activity-event-icon {
-          width: 38px;
-          height: 38px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: #20243a;
-          color: #8d91ff;
-          border: 1px solid rgba(141, 145, 255, 0.06);
-          box-shadow: 0 0 0 7px #15171d;
-        }
-
-        .activity-event.completed .activity-event-icon {
-          color: #2bd66f;
-          background: rgba(34, 197, 94, 0.12);
-        }
-
-        .activity-event.error .activity-event-icon {
-          color: #ff7777;
-          background: rgba(239, 68, 68, 0.12);
-        }
-
-        .activity-event.running .activity-event-icon {
-          animation: activityPulse 1.4s ease-in-out infinite;
-        }
-
-        @keyframes activityPulse {
-          0%, 100% { box-shadow: 0 0 0 7px #15171d, 0 0 0 0 rgba(129, 121, 255, 0.12); }
-          50% { box-shadow: 0 0 0 7px #15171d, 0 0 0 9px rgba(129, 121, 255, 0.05); }
-        }
-
-        .activity-event-main {
-          min-width: 0;
-        }
-
-        .activity-event-title {
+        .business-status-row {
           display: flex;
-          align-items: baseline;
-          gap: 8px;
-          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 16px;
         }
 
-        .activity-event-title strong {
-          color: #f2f4f8;
-          font-size: 16px;
-          line-height: 1.25;
-        }
-
-        .activity-event-title small {
-          color: #8e99af;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .activity-event-main p {
-          margin: 5px 0 0;
-          color: #aeb7c8;
-          font-size: 14px;
+        .business-status-copy {
+          color: #8e9ab0;
+          font-size: 13px;
           line-height: 1.45;
         }
 
-        .activity-event-time {
-          color: #7f899d;
-          font-size: 12px;
-          white-space: nowrap;
-          padding-top: 2px;
-        }
-
-        .activity-status {
+        .business-status-pill {
+          flex: 0 0 auto;
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          margin-top: 7px;
-          padding: 4px 9px;
+          gap: 7px;
+          padding: 7px 11px;
           border-radius: 999px;
+          background: rgba(34, 197, 94, 0.10);
+          color: #28d66d;
           font-size: 11px;
-          font-weight: 750;
-          background: rgba(127, 127, 127, 0.08);
-          color: #98a5b8;
+          font-weight: 800;
+          border: 1px solid rgba(34, 197, 94, 0.16);
         }
 
-        .activity-status-dot {
+        .business-status-pill .dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
           background: currentColor;
         }
 
-        .activity-event.completed .activity-status { color: #29d36c; background: rgba(34, 197, 94, 0.10); }
-        .activity-event.running .activity-status { color: #8d91ff; background: rgba(99, 102, 241, 0.10); }
-        .activity-event.error .activity-status { color: #ff7777; background: rgba(239, 68, 68, 0.10); }
-
-        .output-card {
-          padding: 22px;
+        .business-activity-card {
+          border: 1px solid rgba(127, 127, 127, 0.18);
+          border-radius: 20px;
+          background: #15171d;
+          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+          overflow: hidden;
         }
 
-        .output-card h3 {
-          margin: 0 0 16px;
-          color: #9aa8c0;
-          font-size: 12px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+        .business-card-heading {
+          padding: 21px 22px 16px;
+          border-bottom: 1px solid rgba(127, 127, 127, 0.12);
         }
 
-        .output-tabs {
+        .business-card-heading h3 {
+          margin: 0;
+          color: #f5f7fb;
+          font-size: 21px;
+          line-height: 1.2;
+          letter-spacing: -0.025em;
+        }
+
+        .business-card-heading p {
+          margin: 7px 0 0;
+          color: #8f9ab0;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+
+        .business-timeline {
+          position: relative;
+          padding: 18px 22px 24px;
+        }
+
+        .business-timeline::before {
+          content: '';
+          position: absolute;
+          left: 42px;
+          top: 39px;
+          bottom: 39px;
+          width: 1px;
+          background: rgba(129, 121, 255, 0.25);
+        }
+
+        .business-event {
+          position: relative;
+          display: grid;
+          grid-template-columns: 40px minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: start;
+          width: 100%;
+          padding: 10px 0 19px;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          font: inherit;
+          cursor: pointer;
+          z-index: 1;
+        }
+
+        .business-event:last-child {
+          padding-bottom: 3px;
+        }
+
+        .business-event-icon {
+          width: 40px;
+          height: 40px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          background: #22263d;
+          color: #9a98ff;
+          border: 1px solid rgba(154, 152, 255, 0.10);
+          box-shadow: 0 0 0 7px #15171d;
+        }
+
+        .business-event.completed .business-event-icon {
+          color: #29d36d;
+          background: rgba(34, 197, 94, 0.12);
+        }
+
+        .business-event.error .business-event-icon {
+          color: #ff7070;
+          background: rgba(239, 68, 68, 0.12);
+        }
+
+        .business-event.running .business-event-icon {
+          animation: businessPulse 1.45s ease-in-out infinite;
+        }
+
+        .business-event.selected .business-event-icon {
+          outline: 2px solid rgba(133, 130, 255, 0.28);
+          outline-offset: 2px;
+        }
+
+        @keyframes businessPulse {
+          0%, 100% {
+            box-shadow: 0 0 0 7px #15171d;
+          }
+          50% {
+            box-shadow: 0 0 0 7px #15171d, 0 0 0 10px rgba(129, 121, 255, 0.06);
+          }
+        }
+
+        .business-event-body {
+          min-width: 0;
+        }
+
+        .business-event-title {
           display: flex;
-          flex-wrap: wrap;
-          gap: 9px;
-        }
-
-        .output-tab {
-          display: inline-flex;
           align-items: center;
           gap: 8px;
-          min-height: 40px;
-          padding: 8px 13px;
-          border: 1px solid rgba(127, 127, 127, 0.18);
-          border-radius: 999px;
-          background: transparent;
-          color: #95a0b5;
-          cursor: pointer;
-          font: inherit;
-          font-size: 13px;
-          font-weight: 650;
-          transition: 0.2s ease;
+          flex-wrap: wrap;
         }
 
-        .output-tab:hover {
-          border-color: rgba(129, 121, 255, 0.45);
-          color: #d8dcff;
-        }
-
-        .output-tab.active {
-          border-color: transparent;
-          background: #8582ff;
-          color: white;
-          box-shadow: 0 7px 18px rgba(99, 102, 241, 0.20);
-        }
-
-        .output-detail {
-          margin-top: 18px;
-          padding-top: 17px;
-          border-top: 1px solid rgba(127, 127, 127, 0.12);
-        }
-
-        .output-detail h4 {
-          margin: 0 0 6px;
-          color: #f2f4f8;
+        .business-event-title strong {
+          color: #f1f4f9;
           font-size: 16px;
+          line-height: 1.3;
         }
 
-        .output-detail p {
-          margin: 0;
-          color: #aeb7c8;
-          font-size: 13px;
-          line-height: 1.55;
-        }
-
-        .output-detail .detail-status {
-          display: inline-flex;
-          margin-top: 11px;
-          padding: 5px 9px;
-          border-radius: 999px;
-          background: rgba(34, 197, 94, 0.10);
-          color: #2bd66f;
+        .business-event-role {
+          color: #8d99ae;
           font-size: 11px;
           font-weight: 750;
         }
 
-        .plan-card {
-          grid-column: 1 / -1;
+        .business-event-body p {
+          margin: 5px 0 0;
+          color: #aeb7c8;
+          font-size: 13px;
+          line-height: 1.48;
+        }
+
+        .business-event-time {
+          color: #7e899e;
+          font-size: 11px;
+          white-space: nowrap;
+          padding-top: 3px;
+        }
+
+        .business-mini-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+          padding: 4px 9px;
+          border-radius: 999px;
+          background: rgba(127, 127, 127, 0.08);
+          color: #98a4b8;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .business-mini-status .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+
+        .business-event.completed .business-mini-status {
+          color: #28d66d;
+          background: rgba(34, 197, 94, 0.10);
+        }
+
+        .business-event.running .business-mini-status {
+          color: #9290ff;
+          background: rgba(99, 102, 241, 0.11);
+        }
+
+        .business-event.error .business-mini-status {
+          color: #ff7474;
+          background: rgba(239, 68, 68, 0.11);
+        }
+
+        .business-detail-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+          gap: 16px;
+          margin-top: 16px;
+        }
+
+        .business-output-card {
           padding: 22px;
         }
 
-        .plan-heading h3 {
+        .business-section-kicker {
+          margin: 0 0 13px;
+          color: #95a2ba;
+          font-size: 11px;
+          font-weight: 850;
+          letter-spacing: 0.13em;
+          text-transform: uppercase;
+        }
+
+        .business-output-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .business-output-title-icon {
+          width: 40px;
+          height: 40px;
+          display: grid;
+          place-items: center;
+          flex: 0 0 auto;
+          border-radius: 12px;
+          background: rgba(129, 121, 255, 0.11);
+          color: #9692ff;
+        }
+
+        .business-output-title h4 {
           margin: 0;
-          color: #f3f5fa;
-          font-size: 22px;
-          letter-spacing: -0.02em;
+          color: #f1f4f9;
+          font-size: 18px;
+          line-height: 1.2;
         }
 
-        .plan-heading p {
-          margin: 6px 0 18px;
+        .business-output-title span {
+          display: block;
+          margin-top: 4px;
           color: #8f9ab0;
-          font-size: 14px;
+          font-size: 12px;
         }
 
-        .plan-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
+        .business-detail-copy {
+          margin: 16px 0 0;
+          color: #abb5c7;
+          font-size: 13px;
+          line-height: 1.58;
         }
 
-        .plan-item {
-          display: grid;
-          grid-template-columns: 42px minmax(0, 1fr);
-          gap: 12px;
-          padding: 17px;
-          border: 1px solid rgba(127, 127, 127, 0.16);
-          border-radius: 15px;
+        .business-focus {
+          margin-top: 14px;
+          padding: 12px 13px;
+          border-radius: 13px;
+          border: 1px solid rgba(127, 127, 127, 0.13);
           background: rgba(255, 255, 255, 0.018);
         }
 
-        .plan-item-icon {
-          width: 42px;
-          height: 42px;
+        .business-focus strong {
+          display: block;
+          margin-bottom: 4px;
+          color: #e6eaf2;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .business-focus span {
+          color: #a6b0c1;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .business-live-output {
+          margin-top: 15px;
+          padding: 13px 14px;
+          border-radius: 13px;
+          background: rgba(129, 121, 255, 0.07);
+          border: 1px solid rgba(129, 121, 255, 0.14);
+        }
+
+        .business-live-output strong {
+          display: block;
+          margin-bottom: 5px;
+          color: #b7b5ff;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .business-live-output p {
+          margin: 0;
+          color: #c5cad5;
+          font-size: 13px;
+          line-height: 1.5;
+          word-break: break-word;
+        }
+
+        .business-agent-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 17px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(127, 127, 127, 0.12);
+        }
+
+        .business-agent-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 36px;
+          padding: 7px 11px;
+          border: 1px solid rgba(127, 127, 127, 0.18);
+          border-radius: 999px;
+          background: transparent;
+          color: #98a4b8;
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .business-agent-chip.active {
+          color: #fff;
+          border-color: transparent;
+          background: #8582ff;
+          box-shadow: 0 7px 18px rgba(99, 102, 241, 0.18);
+        }
+
+        .business-workflow-card {
+          margin-top: 16px;
+          padding: 22px;
+        }
+
+        .business-workflow-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 14px;
+          margin-bottom: 19px;
+        }
+
+        .business-workflow-head h3 {
+          margin: 0;
+          color: #f3f5fa;
+          font-size: 21px;
+          letter-spacing: -0.02em;
+        }
+
+        .business-workflow-head p {
+          margin: 6px 0 0;
+          color: #8f9ab0;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+
+        .business-workflow-note {
+          color: #8d98ad;
+          font-size: 11px;
+          white-space: nowrap;
+        }
+
+        .business-flow {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .business-flow-node {
+          width: min(100%, 660px);
+          display: grid;
+          grid-template-columns: 48px minmax(0, 1fr) auto;
+          gap: 13px;
+          align-items: center;
+          padding: 14px 15px;
+          border: 1px solid rgba(127, 127, 127, 0.16);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.018);
+          text-align: left;
+          color: inherit;
+          cursor: pointer;
+          font: inherit;
+        }
+
+        .business-flow-node:hover {
+          border-color: rgba(133, 130, 255, 0.38);
+        }
+
+        .business-flow-node.selected {
+          border-color: rgba(133, 130, 255, 0.55);
+          box-shadow: 0 0 0 2px rgba(133, 130, 255, 0.08);
+        }
+
+        .business-flow-icon {
+          width: 48px;
+          height: 48px;
           display: grid;
           place-items: center;
-          border-radius: 12px;
+          border-radius: 14px;
+          background: #232741;
+          color: #9b98ff;
+        }
+
+        .business-flow-node.completed .business-flow-icon {
+          background: rgba(34, 197, 94, 0.12);
+          color: #2bd66f;
+        }
+
+        .business-flow-node.running .business-flow-icon {
+          background: rgba(99, 102, 241, 0.12);
+          color: #9b98ff;
+        }
+
+        .business-flow-main strong {
+          display: block;
+          color: #f0f3f8;
+          font-size: 14px;
+        }
+
+        .business-flow-main span {
+          display: block;
+          margin-top: 4px;
+          color: #909bb0;
+          font-size: 12px;
+          line-height: 1.42;
+        }
+
+        .business-flow-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 8px;
+          border-radius: 999px;
+          background: rgba(127, 127, 127, 0.08);
+          color: #929db1;
+          font-size: 10px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .business-flow-node.completed .business-flow-status {
+          color: #28d66d;
+          background: rgba(34, 197, 94, 0.10);
+        }
+
+        .business-flow-node.running .business-flow-status {
+          color: #9692ff;
           background: rgba(99, 102, 241, 0.10);
-          color: #8b88ff;
         }
 
-        .plan-item strong {
-          display: block;
-          color: #f0f2f7;
-          font-size: 15px;
-          line-height: 1.3;
+        .business-flow-connector {
+          width: 1px;
+          height: 18px;
+          background: rgba(127, 127, 127, 0.25);
         }
 
-        .plan-item span {
-          display: block;
-          margin-top: 5px;
-          color: #a5afc0;
+        .business-parallel {
+          width: min(100%, 850px);
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .business-parallel-label {
+          margin: 4px 0 8px;
+          color: #7f8aa0;
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .business-parallel .business-flow-node {
+          width: 100%;
+          grid-template-columns: 36px minmax(0, 1fr);
+          padding: 11px;
+          gap: 9px;
+        }
+
+        .business-parallel .business-flow-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 11px;
+        }
+
+        .business-parallel .business-flow-status {
+          grid-column: 2;
+          justify-self: start;
+          margin-top: 2px;
+        }
+
+        .business-empty {
+          padding: 28px 20px;
+          text-align: center;
+          color: #8e9ab0;
           font-size: 13px;
           line-height: 1.5;
         }
 
-        .activity-empty {
-          padding: 28px 22px;
-          text-align: center;
-          color: #8f9ab0;
-          font-size: 14px;
+        /* ---------------- LIGHT MODE ---------------- */
+
+        html.light .business-objective,
+        html.light .business-activity-card {
+          background: #ffffff !important;
+          border-color: #d8deea !important;
+          box-shadow: 0 8px 25px rgba(36, 51, 78, 0.06);
         }
 
-        html.light .activity-card,
-        html.light .activity-objective {
-          background: #f1f5fc !important;
-          border-color: #bcc8df !important;
+        html.light .business-objective p,
+        html.light .business-event-title strong,
+        html.light .business-card-heading h3,
+        html.light .business-output-title h4,
+        html.light .business-workflow-head h3,
+        html.light .business-flow-main strong {
+          color: #111a2d !important;
         }
 
-        html.light .activity-event-icon {
-          box-shadow: 0 0 0 7px #f1f5fc;
-          background: #e9edfb;
+        html.light .business-objective-label,
+        html.light .business-card-heading p,
+        html.light .business-event-role,
+        html.light .business-event-body p,
+        html.light .business-workflow-head p,
+        html.light .business-workflow-note,
+        html.light .business-flow-main span,
+        html.light .business-empty,
+        html.light .business-status-copy {
+          color: #617089 !important;
         }
 
-        html.light .activity-event strong,
-        html.light .activity-card-header h3,
-        html.light .output-detail h4,
-        html.light .plan-heading h3,
-        html.light .plan-item strong,
-        html.light .activity-objective p {
-          color: #101a31 !important;
+        html.light .business-timeline::before,
+        html.light .business-flow-connector {
+          background: #d7deeb;
         }
 
-        @media (max-width: 900px) {
-          .activity-grid {
+        html.light .business-event-icon {
+          box-shadow: 0 0 0 7px #ffffff;
+          background: #eef1fb;
+          color: #625ee0;
+        }
+
+        html.light .business-event.completed .business-event-icon {
+          background: #e8f8ef;
+          color: #159447;
+        }
+
+        html.light .business-event.error .business-event-icon {
+          background: #fff0f0;
+          color: #d83c3c;
+        }
+
+        html.light .business-event.running .business-event-icon {
+          box-shadow: 0 0 0 7px #ffffff;
+        }
+
+        html.light .business-event-body p,
+        html.light .business-detail-copy,
+        html.light .business-live-output p {
+          color: #4f5e75 !important;
+        }
+
+        html.light .business-output-title-icon {
+          background: #eef0ff;
+          color: #625ee0;
+        }
+
+        html.light .business-focus,
+        html.light .business-live-output,
+        html.light .business-flow-node {
+          background: #f8faff;
+          border-color: #dce2ee;
+        }
+
+        html.light .business-focus strong {
+          color: #25324a;
+        }
+
+        html.light .business-focus span {
+          color: #5c6a80;
+        }
+
+        html.light .business-live-output {
+          background: #f2f2ff;
+          border-color: #dcdcff;
+        }
+
+        html.light .business-live-output strong {
+          color: #625ee0;
+        }
+
+        html.light .business-agent-chips {
+          border-top-color: #e1e5ed;
+        }
+
+        html.light .business-agent-chip {
+          border-color: #d6dce8;
+          color: #526078;
+          background: #fff;
+        }
+
+        html.light .business-agent-chip.active {
+          color: #fff;
+          background: #716df0;
+        }
+
+        html.light .business-flow-icon {
+          background: #eef1fb;
+          color: #625ee0;
+        }
+
+        html.light .business-flow-node.completed .business-flow-icon {
+          background: #e8f8ef;
+          color: #159447;
+        }
+
+        html.light .business-flow-node.selected {
+          border-color: #a9a5ff;
+          box-shadow: 0 0 0 2px rgba(113, 109, 240, 0.08);
+        }
+
+        html.light .business-flow-main span {
+          color: #617089 !important;
+        }
+
+        @media (max-width: 920px) {
+          .business-detail-grid {
             grid-template-columns: 1fr;
           }
 
-          .plan-card {
+          .business-parallel {
+            grid-template-columns: 1fr;
+            width: min(100%, 660px);
+          }
+
+          .business-parallel .business-flow-node {
+            grid-template-columns: 40px minmax(0, 1fr) auto;
+            padding: 13px;
+          }
+
+          .business-parallel .business-flow-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .business-parallel .business-flow-status {
             grid-column: auto;
+            justify-self: auto;
+            margin-top: 0;
           }
         }
 
         @media (max-width: 640px) {
-          .activity-page {
-            width: 100%;
-            padding: 0 0 28px;
+          .business-activity-page {
+            padding-bottom: 34px;
           }
 
-          .activity-objective {
-            margin: 14px 0;
-            padding: 14px 15px;
-            border-radius: 15px;
+          .business-objective {
+            margin: 13px 0 14px;
+            padding: 15px;
+            border-radius: 16px;
           }
 
-          .activity-objective p {
-            font-size: 14px;
+          .business-objective p {
+            font-size: 13px;
           }
 
-          .activity-grid {
-            gap: 14px;
+          .business-status-row {
+            align-items: flex-start;
+            flex-direction: column;
+            margin-bottom: 13px;
           }
 
-          .activity-card {
+          .business-activity-card {
             border-radius: 18px;
           }
 
-          .activity-card-header {
-            padding: 20px 18px 14px;
+          .business-card-heading {
+            padding: 18px 15px 14px;
           }
 
-          .activity-card-header h3,
-          .plan-heading h3 {
-            font-size: 21px;
+          .business-card-heading h3,
+          .business-workflow-head h3 {
+            font-size: 19px;
           }
 
-          .activity-timeline {
-            padding: 16px 15px 20px;
+          .business-timeline {
+            padding: 15px 14px 19px;
           }
 
-          .activity-timeline::before {
+          .business-timeline::before {
             left: 34px;
-            top: 32px;
-            bottom: 32px;
+            top: 36px;
+            bottom: 35px;
           }
 
-          .activity-event {
+          .business-event {
             grid-template-columns: 36px minmax(0, 1fr);
-            gap: 11px;
+            gap: 10px;
             padding: 9px 0 17px;
           }
 
-          .activity-event-icon {
+          .business-event-icon {
             width: 36px;
             height: 36px;
             box-shadow: 0 0 0 6px #15171d;
           }
 
-          html.light .activity-event-icon {
-            box-shadow: 0 0 0 6px #f1f5fc;
+          html.light .business-event-icon {
+            box-shadow: 0 0 0 6px #ffffff;
           }
 
-          .activity-event-time {
+          .business-event-time {
             display: none;
           }
 
-          .activity-event-title strong {
+          .business-event-title strong {
             font-size: 15px;
           }
 
-          .activity-event-main p {
-            font-size: 13px;
+          .business-event-body p {
+            font-size: 12.5px;
           }
 
-          .output-card,
-          .plan-card {
-            padding: 18px 15px;
+          .business-detail-grid {
+            margin-top: 13px;
+            gap: 13px;
           }
 
-          .output-tabs {
+          .business-output-card,
+          .business-workflow-card {
+            padding: 17px 14px;
+          }
+
+          .business-output-title h4 {
+            font-size: 16px;
+          }
+
+          .business-workflow-head {
+            display: block;
+            margin-bottom: 15px;
+          }
+
+          .business-workflow-note {
+            display: block;
+            margin-top: 8px;
+          }
+
+          .business-flow-node {
+            grid-template-columns: 42px minmax(0, 1fr);
+            gap: 10px;
+            padding: 12px;
+          }
+
+          .business-flow-status {
+            grid-column: 2;
+            justify-self: start;
+            margin-top: 2px;
+          }
+
+          .business-flow-icon {
+            width: 42px;
+            height: 42px;
+          }
+
+          .business-parallel {
             gap: 8px;
           }
 
-          .output-tab {
-            min-height: 39px;
-            padding: 7px 12px;
-            font-size: 13px;
+          .business-parallel .business-flow-node {
+            grid-template-columns: 40px minmax(0, 1fr);
           }
 
-          .plan-grid {
-            grid-template-columns: 1fr;
-            gap: 10px;
+          .business-parallel .business-flow-status {
+            grid-column: 2;
           }
 
-          .plan-item {
-            padding: 14px;
+          .business-agent-chips {
+            gap: 7px;
+          }
+
+          .business-agent-chip {
+            min-height: 35px;
+            padding: 7px 10px;
           }
         }
 
         @media (max-width: 380px) {
-          .activity-event {
+          .business-event {
             grid-template-columns: 32px minmax(0, 1fr);
-            gap: 10px;
           }
 
-          .activity-event-icon {
+          .business-event-icon {
             width: 32px;
             height: 32px;
           }
 
-          .activity-timeline::before {
-            left: 31px;
+          .business-timeline::before {
+            left: 30px;
           }
 
-          .output-tab {
-            width: 100%;
-            justify-content: center;
+          .business-flow-node {
+            grid-template-columns: 38px minmax(0, 1fr);
+            padding: 11px;
+          }
+
+          .business-flow-icon {
+            width: 38px;
+            height: 38px;
           }
         }
       `}</style>
 
-      <div className="activity-objective">
-        <span className="activity-objective-label">Research objective</span>
-        <p>{query || 'Your business research request is being prepared.'}</p>
+      <div className="business-objective">
+        <span className="business-objective-label">
+          Business research objective
+        </span>
+        <p>
+          {query ||
+            'Your business research request is ready for the agent workflow.'}
+        </p>
       </div>
 
-      <div className="activity-grid">
-        <section className="activity-card">
-          <div className="activity-card-header">
-            <h3>Agent Activity</h3>
-            <p>
-              {researching
-                ? activeAgentMessage
-                : completedCount === agents.length
-                ? 'Research workflow completed successfully.'
-                : 'Live execution history for this research run.'}
-            </p>
+      <div className="business-status-row">
+        <span className="business-status-copy">
+          {researching
+            ? activeAgentMessage
+            : completedCount === agents.length
+            ? 'All business research agents completed successfully.'
+            : 'Live execution status for your business research workflow.'}
+        </span>
+
+        <span className="business-status-pill">
+          <span className="dot" />
+          {researching ? 'Research running' : 'System ready'}
+        </span>
+      </div>
+
+      <section className="business-activity-card">
+        <div className="business-card-heading">
+          <h3>Agent Activity</h3>
+          <p>
+            Follow each business intelligence stage and open an agent to view
+            its latest execution message.
+          </p>
+        </div>
+
+        <div className="business-timeline">
+          {executedAgents.length === 0 ? (
+            <div className="business-empty">
+              Start a research request to see Planner, Market, Company,
+              Competitor, Analysis, Writer, Reviewer and Final Report agents
+              execute here.
+            </div>
+          ) : (
+            executedAgents.map(agent => {
+              const progress = agentProgress[agent.name]
+              const status = progress?.status || 'waiting'
+              const details = businessDetails[agent.name]
+              const selectedClass =
+                effectiveSelected === agent.name ? 'selected' : ''
+
+              return (
+                <button
+                  key={agent.name}
+                  type="button"
+                  className={`business-event ${status} ${selectedClass}`}
+                  onClick={() => setSelectedAgent(agent.name)}
+                  aria-pressed={effectiveSelected === agent.name}
+                >
+                  <span className="business-event-icon">
+                    {iconFor(agent)}
+                  </span>
+
+                  <span className="business-event-body">
+                    <span className="business-event-title">
+                      <strong>{agent.name}</strong>
+                      <span className="business-event-role">
+                        {details?.role}
+                      </span>
+                    </span>
+
+                    <p>
+                      {progress?.message ||
+                        details?.detail ||
+                        agent.description}
+                    </p>
+
+                    <span className="business-mini-status">
+                      <span className="dot" />
+                      {statusLabel(status)}
+                    </span>
+                  </span>
+
+                  <span className="business-event-time">
+                    {status === 'running' ? 'Now' : status === 'completed' ? 'Done' : ''}
+                  </span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      </section>
+
+      <div className="business-detail-grid">
+        <section className="business-activity-card business-output-card">
+          <div className="business-section-kicker">
+            Agent output
           </div>
 
-          <div className="activity-timeline">
-            {executedAgents.length === 0 ? (
-              <div className="activity-empty">
-                Start research to see your business agents execute here.
+          {selected ? (
+            <>
+              <div className="business-output-title">
+                <span className="business-output-title-icon">
+                  {iconFor(selected)}
+                </span>
+
+                <span>
+                  <h4>{selected.name}</h4>
+                  <span>
+                    {businessDetails[selected.name]?.role ||
+                      selected.description}
+                  </span>
+                </span>
               </div>
-            ) : (
-              executedAgents.map(agent => {
-                const progress = agentProgress[agent.name]
-                const status = progress?.status || 'waiting'
-                const revision =
-                  agent.name === 'Reviewer Agent' &&
-                  /revision|rejected|needs/i.test(progress?.message || '')
 
-                return (
-                  <button
-                    key={agent.name}
-                    type="button"
-                    className={`activity-event ${status}`}
-                    onClick={() => setSelectedAgent(agent.name)}
-                    aria-pressed={effectiveSelected === agent.name}
-                    style={{
-                      width: '100%',
-                      border: 0,
-                      background: 'transparent',
-                      color: 'inherit',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      font: 'inherit',
-                    }}
-                  >
-                    <span className="activity-event-icon">
-                      {iconFor(agent)}
-                    </span>
+              <p className="business-detail-copy">
+                {businessDetails[selected.name]?.detail ||
+                  selected.description}
+              </p>
 
-                    <span className="activity-event-main">
-                      <span className="activity-event-title">
-                        <strong>{agent.name}</strong>
-                        {revision && <small>Revision requested</small>}
-                      </span>
-                      <p>
-                        {progress?.message || agent.description}
-                      </p>
-                      <span className="activity-status">
-                        <span className="activity-status-dot" />
-                        {statusLabel(status)}
-                      </span>
-                    </span>
+              <div className="business-focus">
+                <strong>Business focus</strong>
+                <span>
+                  {businessDetails[selected.name]?.focus ||
+                    'Business research and analysis'}
+                </span>
+              </div>
 
-                    <span className="activity-event-time">
-                      {status === 'running' ? 'Now' : status === 'completed' ? 'Done' : ''}
-                    </span>
-                  </button>
-                )
-              })
-            )}
-          </div>
-        </section>
+              <div className="business-live-output">
+                <strong>Latest execution message</strong>
+                <p>
+                  {selectedProgress?.message ||
+                    'Waiting for this agent to start.'}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="business-empty">
+              Select an executed agent above to view its business role and
+              latest output.
+            </div>
+          )}
 
-        <section className="activity-card output-card">
-          <h3>Agent Output</h3>
-
-          <div className="output-tabs">
+          <div className="business-agent-chips">
             {executedAgents.map(agent => (
               <button
                 key={agent.name}
                 type="button"
-                className={`output-tab ${effectiveSelected === agent.name ? 'active' : ''}`}
+                className={`business-agent-chip ${
+                  effectiveSelected === agent.name ? 'active' : ''
+                }`}
                 onClick={() => setSelectedAgent(agent.name)}
               >
                 {iconFor(agent)}
@@ -3441,48 +3986,193 @@ function Workspace({
               </button>
             ))}
           </div>
-
-          {selected ? (
-            <div className="output-detail">
-              <h4>{selected.name}</h4>
-              <p>
-                {selectedProgress?.message || selected.description}
-              </p>
-              <span className="detail-status">
-                {statusLabel(selectedProgress?.status || 'waiting')}
-              </span>
-            </div>
-          ) : (
-            <div className="output-detail">
-              <p>Select an executed agent to view its latest output message.</p>
-            </div>
-          )}
         </section>
 
-        <section className="activity-card plan-card">
-          <div className="plan-heading">
-            <h3>Research workstreams</h3>
-            <p>Business-focused stages covered by your agent workflow.</p>
+        <section className="business-activity-card business-output-card">
+          <div className="business-section-kicker">
+            Current stage
           </div>
 
-          <div className="plan-grid">
-            {workstreams.map(item => {
-              const Icon = item.icon
-              return (
-                <div className="plan-item" key={item.title}>
-                  <span className="plan-item-icon">
-                    <Icon size={18} />
-                  </span>
-                  <span>
-                    <strong>{item.title}</strong>
-                    <span>{item.description}</span>
-                  </span>
-                </div>
-              )
-            })}
+          <div className="business-output-title">
+            <span className="business-output-title-icon">
+              <Activity size={19} />
+            </span>
+
+            <span>
+              <h4>
+                {selected?.name || 'Research workflow'}
+              </h4>
+              <span>
+                {selectedProgress
+                  ? statusLabel(selectedProgress.status)
+                  : 'Waiting for research'}
+              </span>
+            </span>
+          </div>
+
+          <p className="business-detail-copy">
+            {selected
+              ? selectedProgress?.message ||
+                businessDetails[selected.name]?.detail ||
+                selected.description
+              : 'Run a business research request to activate the agent workflow.'}
+          </p>
+
+          <div className="business-focus">
+            <strong>Workflow coverage</strong>
+            <span>
+              Market intelligence → Company intelligence → Competitive
+              intelligence → Business analysis → Report generation → Quality
+              review → Final delivery
+            </span>
+          </div>
+
+          <div className="business-live-output">
+            <strong>Pipeline status</strong>
+            <p>
+              {completedCount} of {agents.length} business agents completed.
+              {runningAgents.length > 0
+                ? ` ${runningAgents.length} agent currently running.`
+                : ''}
+            </p>
           </div>
         </section>
       </div>
+
+      <section className="business-activity-card business-workflow-card">
+        <div className="business-workflow-head">
+          <div>
+            <h3>Business Research Workflow</h3>
+            <p>
+              The complete agent pipeline used to turn one business question
+              into a reviewed final report.
+            </p>
+          </div>
+
+          <span className="business-workflow-note">
+            Live status from FastAPI SSE
+          </span>
+        </div>
+
+        <div className="business-flow">
+          <button
+            type="button"
+            className={`business-flow-node ${getStatus('Planner Agent')} ${
+              effectiveSelected === 'Planner Agent' ? 'selected' : ''
+            }`}
+            onClick={() => setSelectedAgent('Planner Agent')}
+          >
+            <span className="business-flow-icon">
+              <Clipboard size={19} />
+            </span>
+
+            <span className="business-flow-main">
+              <strong>Planner Agent</strong>
+              <span>
+                Understands the objective and creates the research plan.
+              </span>
+            </span>
+
+            <span className="business-flow-status">
+              <span className="dot" />
+              {statusLabel(getStatus('Planner Agent'))}
+            </span>
+          </button>
+
+          <div className="business-flow-connector" />
+
+          <div className="business-parallel-label">
+            Parallel business intelligence
+          </div>
+
+          <div className="business-parallel">
+            {workflowRows
+              .filter(row => row.group === 'research')
+              .map(researchRow => {
+                const researchStatus = getStatus(researchRow.name)
+                const ResearchIcon = researchRow.icon
+
+                return (
+                  <button
+                    key={researchRow.name}
+                    type="button"
+                    className={`business-flow-node ${researchStatus} ${
+                      effectiveSelected === researchRow.name
+                        ? 'selected'
+                        : ''
+                    }`}
+                    onClick={() => setSelectedAgent(researchRow.name)}
+                  >
+                    <span className="business-flow-icon">
+                      <ResearchIcon size={17} />
+                    </span>
+
+                    <span className="business-flow-main">
+                      <strong>{researchRow.name}</strong>
+                      <span>{researchRow.subtitle}</span>
+                    </span>
+
+                    <span className="business-flow-status">
+                      <span className="dot" />
+                      {statusLabel(researchStatus)}
+                    </span>
+                  </button>
+                )
+              })}
+          </div>
+
+          <div className="business-flow-connector" />
+
+          {workflowRows
+            .filter(
+              row =>
+                row.group !== 'research' &&
+                row.name !== 'Planner Agent'
+            )
+            .map((row, index, remainingRows) => {
+              const Icon = row.icon
+              const status = getStatus(row.name)
+
+              return (
+                <div
+                  key={row.name}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`business-flow-node ${status} ${
+                      effectiveSelected === row.name ? 'selected' : ''
+                    }`}
+                    onClick={() => setSelectedAgent(row.name)}
+                  >
+                    <span className="business-flow-icon">
+                      <Icon size={19} />
+                    </span>
+
+                    <span className="business-flow-main">
+                      <strong>{row.name}</strong>
+                      <span>{row.subtitle}</span>
+                    </span>
+
+                    <span className="business-flow-status">
+                      <span className="dot" />
+                      {statusLabel(status)}
+                    </span>
+                  </button>
+
+                  {index < remainingRows.length - 1 && (
+                    <div className="business-flow-connector" />
+                  )}
+                </div>
+              )
+            })}
+        </div>
+      </section>
     </div>
   )
 }
