@@ -1400,15 +1400,10 @@ export default function Page() {
 // -------------------------------------------------------
   // SYSTEM STATUS
   // -------------------------------------------------------
-  // Idle state => System Unavailable. While research is executing
-  // or an agent is running => System Online.
-  const hasRunningAgent = Object.values(agentProgress).some(
-    progress => progress.status === 'running'
-  )
-
-  const systemOnline =
-    !backendOffline &&
-    (researching || hasRunningAgent)
+  // System status reflects backend connectivity.
+  // Once /reports responds successfully, the system stays Online
+  // even while the research workflow is idle.
+  const systemOnline = !backendOffline
 
   // -------------------------------------------------------
   // THEME
@@ -1591,37 +1586,50 @@ export default function Page() {
             const message = typeof data?.message === 'string' ? data.message : undefined
 
             if (agentName && status) {
-              const fallbackMessages: Record<string, string> = {
-                'Planner Agent': status === 'completed'
-                  ? 'Produced 3 research subtasks: Market, Company and Competitor research.'
-                  : 'Understanding the objective and drafting an execution plan...',
-                'Market Agent': status === 'completed'
-                  ? 'Gathered findings for the market research task.'
-                  : 'Researching market trends, demand and industry signals...',
-                'Company Agent': status === 'completed'
-                  ? 'Gathered findings for the company research task.'
-                  : 'Researching company performance, products and positioning...',
-                'Competitor Agent': status === 'completed'
-                  ? 'Gathered findings for the competitor research task.'
-                  : 'Researching competitors, differentiation and market gaps...',
-                'Analysis Agent': status === 'completed'
-                  ? 'Synthesized the research findings into business insights.'
-                  : 'Analyzing research findings for trends, risks and opportunities...',
-                'Writer Agent': status === 'completed'
-                  ? 'Drafted the complete business research report.'
-                  : 'Writing the business research report...',
-                'Reviewer Agent': status === 'completed'
-                  ? 'Validated the report for clarity, evidence and completeness.'
-                  : 'Reviewing the report for quality and consistency...',
-                'Final Report Agent': status === 'completed'
-                  ? 'Prepared the final reviewed business research report.'
-                  : 'Preparing the final report for delivery...',
+              const activityMessages: Record<
+                string,
+                { running: string; completed: string }
+              > = {
+                'Planner Agent': {
+                  running: 'Breaking the business question into focused research tasks and defining the market, company and competitor workstreams.',
+                  completed: 'Produced 3 research subtasks: Market, Company and Competitor research.',
+                },
+                'Market Agent': {
+                  running: 'Researching market size, growth trends, demand signals, industry dynamics and major market developments.',
+                  completed: 'Collected market evidence covering market trends, demand signals, growth patterns and key industry developments.',
+                },
+                'Company Agent': {
+                  running: 'Researching company products, performance, positioning, strategy and relevant business context.',
+                  completed: 'Collected company findings covering products, positioning, performance, strategy and business context.',
+                },
+                'Competitor Agent': {
+                  running: 'Identifying competitors and comparing positioning, differentiation, strengths, threats and market gaps.',
+                  completed: 'Collected competitor findings covering competitive positioning, differentiation, threats and market opportunities.',
+                },
+                'Analysis Agent': {
+                  running: 'Combining market, company and competitor findings to identify patterns, opportunities, risks and strategic insights.',
+                  completed: 'Synthesized the collected evidence into decision-ready business insights, opportunities and risks.',
+                },
+                'Writer Agent': {
+                  running: 'Organizing the validated findings and insights into a structured business research report.',
+                  completed: 'Drafted the complete business research report from the analyzed evidence and findings.',
+                },
+                'Reviewer Agent': {
+                  running: 'Reviewing the report for completeness, clarity, consistency, evidence quality and alignment with the research question.',
+                  completed: 'Validated the report for clarity, evidence, consistency, completeness and alignment with the original question.',
+                },
+                'Final Report Agent': {
+                  running: 'Applying the reviewed result and preparing the final business research report for delivery.',
+                  completed: 'Prepared the final reviewed business research report for delivery.',
+                },
               }
 
+              const activity = activityMessages[agentName]
               const eventMessage =
+                activity?.[status === 'completed' ? 'completed' : 'running'] ||
                 message ||
-                fallbackMessages[agentName] ||
                 `${agentName} is working.`
+
               const now = Date.now()
 
               setAgentProgress(current => ({
@@ -1898,7 +1906,6 @@ export default function Page() {
           onStart={startResearch}
           researching={researching}
           agentProgress={agentProgress}
-          agentEvents={agentEvents}
           activeAgentMessage={activeAgentMessage}
           error={error}
           />
@@ -5469,7 +5476,7 @@ function MarkdownBlock({ text }: { text: string }) {
       return `<p>${inlineMarkdown(line)}</p>`
     })
     .join('')
-    .replace(/(<li>.*?<\/li>)+/gs, match => `<ul>${match}</ul>`)
+    .replace(/(<li>[\s\S]*?<\/li>)+/g, match => `<ul>${match}</ul>`)
 
   return (
     <div
