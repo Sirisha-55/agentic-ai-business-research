@@ -82,7 +82,6 @@ type Report = {
 // ---------------------------------------------------------
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.VITE_API_BASE_URL ||
   'http://127.0.0.1:8000'
@@ -272,12 +271,13 @@ type AgentProgress = {
 
 type AgentProgressMap = Record<string, AgentProgress>
 
-type AgentEvent = {
+
+type WorkflowActivity = {
   id: string
   agent: string
-  status: AgentExecutionStatus
+  status: AgentExecutionStatus | 'orchestrating'
   message: string
-  timestamp: number
+  timestamp: string
 }
 
 const createInitialAgentProgress = (): AgentProgressMap =>
@@ -1158,6 +1158,20 @@ function EmptyState({
 }
 
 
+
+function currentProgressMessage(
+  progressMap: AgentProgressMap,
+  agentName: string,
+  status: AgentExecutionStatus,
+): string {
+  const existing = progressMap[agentName]?.message
+  if (existing) return existing
+  if (status === 'completed') return `${agentName} completed its task.`
+  if (status === 'error') return `${agentName} encountered an error.`
+  if (status === 'running') return `${agentName} started working.`
+  return `${agentName} is waiting.`
+}
+
 // ---------------------------------------------------------
 // MAIN PAGE
 // ---------------------------------------------------------
@@ -1268,11 +1282,11 @@ export default function Page() {
       createInitialAgentProgress()
     )
 
-  // Keep the full chronological execution history.
-  // agentProgress stores only the latest state; this list lets the UI show
-  // Planner -> Planner Agent -> research -> analysis as separate events.
-  const [agentEvents, setAgentEvents] =
-    useState<AgentEvent[]>([])
+  // Keeps every SSE progress event so the activity timeline shows
+  // the complete execution flow, including repeated updates from
+  // the same agent (for example Planner -> Planner Agent -> Planner Agent).
+  const [activityHistory, setActivityHistory] =
+    useState<WorkflowActivity[]>([])
 
   // Shows the latest message emitted by the active agent.
   const [activeAgentMessage, setActiveAgentMessage] =
@@ -1480,7 +1494,15 @@ export default function Page() {
     setError('')
     setResearching(true)
     setAgentProgress(createInitialAgentProgress())
-    setAgentEvents([])
+    setActivityHistory([
+      {
+        id: `orchestrator-${Date.now()}`,
+        agent: 'Orchestrator',
+        status: 'orchestrating',
+        message: 'Creating the execution flow and coordinating the research agents.',
+        timestamp: new Date().toISOString(),
+      },
+    ])
     setActiveAgentMessage('Research started.')
 
     // Open the workspace only after validation succeeds.
@@ -1566,22 +1588,20 @@ export default function Page() {
 
           if (eventName === 'research_started') {
             const message =
-              typeof data?.message === 'string'
-                ? data.message
-                : 'Understanding the objective and drafting an execution plan...'
+              typeof data?.message === 'string' ? data.message : 'Research started.'
 
-            const now = Date.now()
-            setActiveAgentMessage(message)
-            setAgentEvents(current => [
+            setActivityHistory(current => [
               ...current,
               {
-                id: `${now}-planner`,
-                agent: 'Planner',
-                status: 'running',
+                id: `orchestrator-${Date.now()}-${current.length}`,
+                agent: 'Orchestrator',
+                status: 'orchestrating',
                 message,
-                timestamp: now,
+                timestamp: new Date().toISOString(),
               },
             ])
+
+            setActiveAgentMessage(message)
             continue
           }
 
@@ -1591,59 +1611,29 @@ export default function Page() {
             const message = typeof data?.message === 'string' ? data.message : undefined
 
             if (agentName && status) {
-              const fallbackMessages: Record<string, string> = {
-                'Planner Agent': status === 'completed'
-                  ? 'Produced 3 research subtasks: Market, Company and Competitor research.'
-                  : 'Understanding the objective and drafting an execution plan...',
-                'Market Agent': status === 'completed'
-                  ? 'Gathered findings for the market research task.'
-                  : 'Researching market trends, demand and industry signals...',
-                'Company Agent': status === 'completed'
-                  ? 'Gathered findings for the company research task.'
-                  : 'Researching company performance, products and positioning...',
-                'Competitor Agent': status === 'completed'
-                  ? 'Gathered findings for the competitor research task.'
-                  : 'Researching competitors, differentiation and market gaps...',
-                'Analysis Agent': status === 'completed'
-                  ? 'Synthesized the research findings into business insights.'
-                  : 'Analyzing research findings for trends, risks and opportunities...',
-                'Writer Agent': status === 'completed'
-                  ? 'Drafted the complete business research report.'
-                  : 'Writing the business research report...',
-                'Reviewer Agent': status === 'completed'
-                  ? 'Validated the report for clarity, evidence and completeness.'
-                  : 'Reviewing the report for quality and consistency...',
-                'Final Report Agent': status === 'completed'
-                  ? 'Prepared the final reviewed business research report.'
-                  : 'Preparing the final report for delivery...',
-              }
-
               const eventMessage =
-                message ||
-                fallbackMessages[agentName] ||
-                `${agentName} is working.`
-              const now = Date.now()
+                message || currentProgressMessage(agentProgress, agentName, status)
 
               setAgentProgress(current => ({
                 ...current,
                 [agentName]: {
                   status,
-                  message: eventMessage,
+                  message: message || current[agentName]?.message || '',
                 },
               }))
 
-              setAgentEvents(current => [
+              setActivityHistory(current => [
                 ...current,
                 {
-                  id: `${now}-${agentName}-${current.length}`,
+                  id: `agent-${Date.now()}-${current.length}`,
                   agent: agentName,
                   status,
                   message: eventMessage,
-                  timestamp: now,
+                  timestamp: new Date().toISOString(),
                 },
               ])
 
-              setActiveAgentMessage(eventMessage)
+              setActiveAgentMessage(eventMessage || `${agentName} is working.`)
             }
             continue
           }
@@ -1898,7 +1888,6 @@ export default function Page() {
           onStart={startResearch}
           researching={researching}
           agentProgress={agentProgress}
-          agentEvents={agentEvents}
           activeAgentMessage={activeAgentMessage}
           error={error}
           />
@@ -1912,6 +1901,7 @@ export default function Page() {
           researching={researching}
           agentProgress={agentProgress}
           activeAgentMessage={activeAgentMessage}
+          activityHistory={activityHistory}
         />
       )
     }
@@ -3244,1302 +3234,807 @@ function NewResearch({
 // ---------------------------------------------------------
 // WORKSPACE
 // ---------------------------------------------------------
-// WORKSPACE / AGENT ACTIVITY
-// ---------------------------------------------------------
 
 function Workspace({
   query,
   researching,
   agentProgress,
-  agentEvents,
   activeAgentMessage,
+  activityHistory = [],
 }: {
   query: string
   researching: boolean
   agentProgress: AgentProgressMap
-  agentEvents: AgentEvent[]
   activeAgentMessage: string
+  activityHistory?: WorkflowActivity[]
 }) {
-  const [selectedAgent, setSelectedAgent] = useState('Planner Agent')
-
-  const statusLabel = (status: AgentExecutionStatus) => {
+  const statusLabel = (status: WorkflowActivity['status']) => {
     if (status === 'running') return 'Running'
     if (status === 'completed') return 'Completed'
     if (status === 'error') return 'Error'
+    if (status === 'orchestrating') return 'Orchestrating'
     return 'Waiting'
   }
 
-  const executedAgents = agents.filter(
-    agent => agentProgress[agent.name]?.status !== 'waiting'
+  const agentTask: Record<string, { task: string; what: string; output: string }> = {
+    'Planner Agent': {
+      task: 'Understand the business question and split it into focused research workstreams.',
+      what: 'Defines the research objective, scope, and the exact work each downstream agent must complete.',
+      output: 'Creates the execution plan and sends separate Market, Company, and Competitor tasks into the parallel stage.',
+    },
+    'Market Agent': {
+      task: 'Collect market size, growth, trends, demand signals, and relevant industry developments.',
+      what: 'Researches the external market environment using the assigned market workstream.',
+      output: 'Returns market findings and supporting evidence for the analysis stage.',
+    },
+    'Company Agent': {
+      task: 'Investigate the target company, products, positioning, performance, and strategic direction.',
+      what: 'Builds the company-specific evidence needed to understand the business in context.',
+      output: 'Returns company-focused findings for comparison and synthesis.',
+    },
+    'Competitor Agent': {
+      task: 'Identify major competitors and compare their positioning, strengths, threats, and gaps.',
+      what: 'Maps the competitive landscape and highlights important differentiation and market opportunities.',
+      output: 'Returns competitor intelligence that feeds the business analysis.',
+    },
+    'Analysis Agent': {
+      task: 'Combine market, company, and competitor findings into meaningful business insights.',
+      what: 'Cross-checks evidence, finds patterns, identifies opportunities and risks, and interprets the research.',
+      output: 'Produces decision-ready business analysis for report generation.',
+    },
+    'Writer Agent': {
+      task: 'Turn the analysis into a structured, readable business research report.',
+      what: 'Organizes findings, evidence, strategic implications, and sources into a coherent report.',
+      output: 'Produces the complete business research draft.',
+    },
+    'Reviewer Agent': {
+      task: 'Validate the report for completeness, evidence quality, clarity, consistency, and alignment.',
+      what: 'Checks the draft and identifies corrections or improvements before delivery.',
+      output: 'Returns a reviewed and quality-checked report.',
+    },
+    'Final Report Agent': {
+      task: 'Prepare the final reviewed report for delivery to the user.',
+      what: 'Applies the approved review result and packages the final business research response.',
+      output: 'Delivers the final report ready to open and read.',
+    },
+  }
+
+  const orderedAgents = agents
+  const activeEvent = [...activityHistory].reverse().find(
+    event => event.agent !== 'Orchestrator'
+  )
+  const [selectedAgent, setSelectedAgent] = useState<string>(
+    activeEvent?.agent || 'Planner Agent'
   )
 
-  const completedCount = agents.filter(
+  useEffect(() => {
+    if (!selectedAgent) return
+    const exists = orderedAgents.some(agent => agent.name === selectedAgent)
+    if (!exists) setSelectedAgent(activeEvent?.agent || 'Planner Agent')
+  }, [activityHistory, activeEvent?.agent, orderedAgents, selectedAgent])
+
+  const selectedEvents = (activityHistory || []).filter(
+    event => event.agent === selectedAgent
+  )
+  const selectedProgress = agentProgress[selectedAgent]
+  const selectedDetails = agentTask[selectedAgent]
+  const completedCount = orderedAgents.filter(
     agent => agentProgress[agent.name]?.status === 'completed'
   ).length
-
-  const runningCount = agents.filter(
+  const runningCount = orderedAgents.filter(
     agent => agentProgress[agent.name]?.status === 'running'
   ).length
 
-  const detailByAgent: Record<
-    string,
-    {
-      role: string
-      task: string
-      what: string
-      output: string
-    }
-  > = {
-    'Planner Agent': {
-      role: 'Research planning',
-      task: 'Break the business question into focused research workstreams.',
-      what: 'Defines what the market, company and competitor research streams must investigate.',
-      output: 'Creates the execution plan and routes the three research tasks to the parallel agents.',
-    },
-    'Market Agent': {
-      role: 'Market intelligence',
-      task: 'Research market size, trends, demand and industry dynamics.',
-      what: 'Investigates market conditions, demand signals, growth trends and important industry developments.',
-      output: 'Collects market evidence for the final business analysis.',
-    },
-    'Company Agent': {
-      role: 'Company intelligence',
-      task: 'Build a focused view of the target company.',
-      what: 'Studies company products, positioning, performance, strategy and relevant business context.',
-      output: 'Builds a company-focused evidence base for analysis.',
-    },
-    'Competitor Agent': {
-      role: 'Competitive intelligence',
-      task: 'Map the competitive landscape and strategic gaps.',
-      what: 'Identifies competitors and examines positioning, differentiation, strengths, threats and market gaps.',
-      output: 'Creates the competitive landscape used for comparison and opportunity analysis.',
-    },
-    'Analysis Agent': {
-      role: 'Business analysis',
-      task: 'Combine the parallel research findings into business insights.',
-      what: 'Connects market, company and competitor evidence to identify patterns, opportunities and risks.',
-      output: 'Turns collected evidence into decision-ready business interpretation.',
-    },
-    'Writer Agent': {
-      role: 'Report generation',
-      task: 'Turn validated analysis into a structured report.',
-      what: 'Organizes findings, insights and supporting evidence into a readable business research report.',
-      output: 'Produces the first complete report draft.',
-    },
-    'Reviewer Agent': {
-      role: 'Quality review',
-      task: 'Check the report for quality and research alignment.',
-      what: 'Checks completeness, clarity, consistency, evidence quality and alignment with the original question.',
-      output: 'Validates the report and identifies corrections or improvements.',
-    },
-    'Final Report Agent': {
-      role: 'Final delivery',
-      task: 'Prepare the reviewed result for the user.',
-      what: 'Applies the reviewed result and prepares the final business research report.',
-      output: 'Delivers the final reviewed report.',
-    },
+  const eventTitle = (event: WorkflowActivity) => {
+    if (event.status === 'running') return event.agent
+    if (event.status === 'completed') return `${event.agent}`
+    if (event.status === 'error') return `${event.agent}`
+    return event.agent
   }
 
-  const selectedDetails =
-    detailByAgent[selectedAgent] || detailByAgent['Planner Agent']
-  const selectedProgress = agentProgress[selectedAgent] || {
-    status: 'waiting' as AgentExecutionStatus,
-    message: 'Waiting to run.',
-  }
-
-  const researchAgents = agents.filter(agent =>
-    ['Market Agent', 'Company Agent', 'Competitor Agent'].includes(agent.name)
-  )
-
-  const finalAgents = agents.filter(agent =>
-    ['Analysis Agent', 'Writer Agent', 'Reviewer Agent', 'Final Report Agent'].includes(agent.name)
-  )
-
-  const renderStatus = (name: string) => {
-    const status = agentProgress[name]?.status || 'waiting'
-    return (
-      <span className={`reference-agent-status ${status}`}>
-        <span className="reference-status-dot" />
-        {statusLabel(status)}
-      </span>
-    )
-  }
-
-  const renderPipelineNode = (
-    agent: typeof agents[number],
-    compact = false
-  ) => {
-    const Icon = agent.icon
-    const status = agentProgress[agent.name]?.status || 'waiting'
+  const renderTimelineItem = (event: WorkflowActivity, index: number) => {
+    const isPlanner = event.agent === 'Planner Agent'
+    const isOrchestrator = event.agent === 'Orchestrator'
+    const isCompleted = event.status === 'completed'
+    const isRunning = event.status === 'running'
+    const isError = event.status === 'error'
+    const agentMeta = orderedAgents.find(agent => agent.name === event.agent)
+    const Icon = isOrchestrator
+      ? Network
+      : agentMeta?.icon || Bot
 
     return (
       <button
-        type="button"
-        className={`reference-pipeline-node ${status} ${compact ? 'compact' : ''}`}
-        onClick={() => setSelectedAgent(agent.name)}
-      >
-        <span className="reference-pipeline-icon">
-          <Icon size={compact ? 17 : 19} />
-        </span>
-        <strong>{agent.name.replace(' Agent', '')}</strong>
-        <small>{agent.description}</small>
-        {renderStatus(agent.name)}
-      </button>
-    )
-  }
-
-  const formatEventTime = (timestamp: number) =>
-    new Date(timestamp).toLocaleTimeString('en-IN', {
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-
-  const eventIcon = (agentName: string) => {
-    if (agentName === 'Planner') return Target
-    return agents.find(agent => agent.name === agentName)?.icon || Activity
-  }
-
-  const renderActivityEvent = (event: AgentEvent) => {
-    const Icon = eventIcon(event.agent)
-    const actualAgent = event.agent === 'Planner' ? 'Planner Agent' : event.agent
-    const plannerCompleted =
-      event.agent === 'Planner Agent' && event.status === 'completed'
-    const message = plannerCompleted
-      ? 'Produced 3 research subtasks: Market, Company and Competitor research.'
-      : event.message
-
-    return (
-      <button
-        type="button"
         key={event.id}
-        className="reference-activity-event"
-        onClick={() => setSelectedAgent(actualAgent)}
-      >
-        <span className={`reference-activity-avatar ${event.status}`}>
-          <Icon size={16} />
-        </span>
-        <span className="reference-activity-copy">
-          <span className="reference-activity-title">
-            <strong>{event.agent}</strong>
-            <span className={`reference-activity-status ${event.status}`}>
-              <span />
-              {statusLabel(event.status)}
-            </span>
-          </span>
-          <span className="reference-activity-message">{message}</span>
-        </span>
-        <time className="reference-activity-time">
-          {formatEventTime(event.timestamp)}
-        </time>
-      </button>
-    )
-  }
-
-  const renderLogRow = (agent: typeof agents[number]) => {
-    const progress = agentProgress[agent.name]
-    const status = progress?.status || 'waiting'
-    if (status === 'waiting') return null
-
-    const Icon = agent.icon
-
-    return (
-      <button
         type="button"
-        key={agent.name}
-        className={`reference-log-row ${selectedAgent === agent.name ? 'selected' : ''}`}
-        onClick={() => setSelectedAgent(agent.name)}
+        className={`business-timeline-item ${
+          event.agent === selectedAgent ? 'selected' : ''
+        }`}
+        onClick={() => !isOrchestrator && setSelectedAgent(event.agent)}
       >
-        <span className={`reference-log-avatar ${status}`}>
-          <Icon size={15} />
+        <span
+          className={`business-timeline-node ${
+            isCompleted
+              ? 'completed'
+              : isRunning
+                ? 'running'
+                : isError
+                  ? 'error'
+                  : isOrchestrator
+                    ? 'orchestrator'
+                    : ''
+          }`}
+        >
+          {isRunning ? (
+            <Loader2 size={15} className="spin" />
+          ) : isCompleted ? (
+            <Check size={15} />
+          ) : isError ? (
+            <AlertCircle size={15} />
+          ) : (
+            <Icon size={15} />
+          )}
         </span>
 
-        <span className="reference-log-copy">
-          <span className="reference-log-title">
-            <strong>{agent.name}</strong>
-            {renderStatus(agent.name)}
+        <span className="business-timeline-copy">
+          <span className="business-timeline-title-row">
+            <strong>{eventTitle(event)}</strong>
+            <time>{new Date(event.timestamp).toLocaleTimeString([], {
+              hour: 'numeric',
+              minute: '2-digit',
+              second: '2-digit',
+            })}</time>
           </span>
-          <span className="reference-log-message">
-            {progress?.message || detailByAgent[agent.name]?.output}
-          </span>
+          <span className="business-timeline-message">{event.message}</span>
+          {isPlanner && event.status === 'completed' && (
+            <span className="business-timeline-hint">
+              Task split completed — Market, Company and Competitor workstreams created.
+            </span>
+          )}
         </span>
-
-        <ChevronRight size={16} className="reference-log-arrow" />
       </button>
     )
   }
+
+  const safeActivityHistory = activityHistory || []
+
+  const displayEvents = safeActivityHistory.length
+    ? safeActivityHistory
+    : [
+        {
+          id: 'waiting',
+          agent: 'Orchestrator',
+          status: 'orchestrating' as const,
+          message: 'Start a research request to see every execution event here.',
+          timestamp: new Date().toISOString(),
+        },
+      ]
 
   return (
-    <div className="view-enter reference-workspace">
+    <div className="view-enter activity-page business-activity-page business-flow-page">
       <style jsx global>{`
-        .reference-workspace {
+        .business-flow-page {
           width: 100%;
-          max-width: 1180px;
+          max-width: 1160px;
           margin: 0 auto;
-          padding: 26px 0 60px;
+          padding: 0 0 56px;
         }
 
-        .reference-workspace-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 24px;
-          margin-bottom: 22px;
+        .business-flow-hero {
+          margin: 16px 0;
         }
 
-        .reference-workspace-kicker {
-          display: block;
-          margin-bottom: 5px;
-          color: #8d98ad;
-          font-size: 12px;
-          font-weight: 650;
-        }
-
-        .reference-workspace-title {
-          margin: 0;
-          color: var(--text-primary, #f4f6fb);
-          font-size: clamp(30px, 4vw, 43px);
-          line-height: 1.08;
+        .business-flow-hero h2 {
+          margin: 4px 0 7px;
+          font-size: clamp(24px, 3vw, 32px);
+          line-height: 1.15;
           letter-spacing: -.035em;
-          font-weight: 780;
         }
 
-        .reference-workspace-query {
-          max-width: 780px;
-          margin: 10px 0 0;
-          color: #aeb7c8;
-          font-size: 14px;
+        .business-flow-hero p {
+          margin: 0;
+          max-width: 820px;
+          color: #8d99b0;
+          font-size: 13px;
           line-height: 1.55;
         }
 
-        .reference-live-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          flex: 0 0 auto;
-          padding: 9px 13px;
-          border: 1px solid rgba(127,127,127,.22);
-          border-radius: 999px;
-          background: rgba(255,255,255,.035);
-          color: #cbd3df;
-          font-size: 12px;
-          font-weight: 700;
+        .business-objective {
+          margin: 16px 0;
         }
 
-        .reference-live-badge .reference-status-dot {
-          width: 7px;
-          height: 7px;
-          background: #22c55e;
-          box-shadow: 0 0 0 4px rgba(34,197,94,.09);
-        }
-
-        .reference-run-bar {
+        .business-flow-status {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 14px;
-          margin-bottom: 20px;
-          padding: 13px 16px;
-          border: 1px solid rgba(127,127,127,.17);
+          padding: 12px 16px;
+          border: 1px solid rgba(127,127,127,.16);
           border-radius: 15px;
-          background: rgba(255,255,255,.025);
-          color: #8e99ae;
+          background: var(--card-bg, #15171d);
+          color: #a1abc0;
           font-size: 12px;
         }
 
-        .reference-run-status {
+        .business-flow-status strong {
+          color: var(--text-primary, #eef2f8);
+        }
+
+        .business-flow-pill {
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          padding: 7px 11px;
+          padding: 6px 10px;
           border-radius: 999px;
-          background: rgba(126,118,255,.12);
-          color: #9b98ff;
+          border: 1px solid rgba(126,118,255,.2);
+          background: rgba(126,118,255,.08);
+          color: #aaa7ff;
           font-weight: 800;
+          white-space: nowrap;
         }
 
-        .reference-run-status.completed {
-          color: #28d66c;
-          background: rgba(34,197,94,.10);
-        }
-
-        .reference-run-status.error {
-          color: #ff7777;
-          background: rgba(239,68,68,.10);
-        }
-
-        .reference-run-dot {
+        .business-flow-pill .dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
           background: currentColor;
         }
 
-        .reference-orchestrator {
+        .business-orchestrator-card {
+          margin: 14px 0;
+          padding: 15px 17px;
           display: flex;
           align-items: center;
-          gap: 14px;
-          margin-bottom: 16px;
-          padding: 13px 16px;
-          border: 1px solid rgba(126,118,255,.20);
-          border-radius: 15px;
-          background: linear-gradient(
-            90deg,
-            rgba(126,118,255,.09),
-            rgba(255,255,255,.018)
-          );
+          gap: 13px;
+          border: 1px solid rgba(126,118,255,.22);
+          border-radius: 17px;
+          background: linear-gradient(135deg, rgba(126,118,255,.09), rgba(255,255,255,.015));
         }
 
-        .reference-orchestrator-icon {
-          width: 36px;
-          height: 36px;
+        .business-orchestrator-icon {
+          width: 42px;
+          height: 42px;
           display: grid;
           place-items: center;
-          flex: 0 0 36px;
-          border-radius: 10px;
-          background: rgba(126,118,255,.14);
-          color: #9c99ff;
-          border: 1px solid rgba(126,118,255,.20);
+          border-radius: 12px;
+          background: rgba(126,118,255,.13);
+          color: #aaa7ff;
+          flex: 0 0 auto;
         }
 
-        .reference-orchestrator-copy {
-          min-width: 0;
-        }
-
-        .reference-orchestrator-copy strong {
+        .business-orchestrator-copy strong {
           display: block;
-          color: var(--text-primary, #f1f3f8);
-          font-size: 13px;
+          color: var(--text-primary, #f2f4f8);
+          font-size: 14px;
         }
 
-        .reference-orchestrator-copy span {
+        .business-orchestrator-copy span {
           display: block;
           margin-top: 3px;
-          color: #8995aa;
+          color: #8d99b0;
           font-size: 11px;
           line-height: 1.45;
         }
 
-        .reference-pipeline-card {
-          margin-bottom: 20px;
-          padding: 22px 20px 20px;
-          border: 1px solid rgba(127,127,127,.18);
-          border-radius: 19px;
-          background: var(--card-bg, #15171d);
-          overflow-x: auto;
+        .business-orchestrator-arrow {
+          margin-left: auto;
+          color: #7772f6;
+          font-size: 18px;
         }
 
-        .reference-pipeline-title {
-          margin: 0 0 18px;
-          color: var(--text-primary, #f4f6fb);
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: .10em;
-          text-transform: uppercase;
-        }
-
-        .reference-pipeline-main {
+        .business-flow-grid {
           display: grid;
-          grid-template-columns: minmax(125px,1fr) 22px minmax(135px,1fr) 22px minmax(180px,1.4fr) 22px minmax(125px,1fr) 22px minmax(125px,1fr) 22px minmax(145px,1fr);
-          align-items: center;
-          min-width: 980px;
-        }
-
-        .reference-pipeline-node {
-          min-width: 0;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          color: inherit;
-          text-align: center;
-          cursor: pointer;
-        }
-
-        .reference-pipeline-node:hover .reference-pipeline-icon {
-          transform: translateY(-2px);
-          border-color: rgba(126,118,255,.45);
-        }
-
-        .reference-pipeline-icon {
-          width: 44px;
-          height: 44px;
-          display: grid;
-          place-items: center;
-          margin: 0 auto 8px;
-          border: 1px solid rgba(127,127,127,.17);
-          border-radius: 11px;
-          background: rgba(255,255,255,.025);
-          color: #929bb1;
-          transition: .18s ease;
-        }
-
-        .reference-pipeline-node.running .reference-pipeline-icon {
-          color: #9c99ff;
-          border-color: rgba(126,118,255,.55);
-          box-shadow: 0 0 0 5px rgba(126,118,255,.07);
-          animation: referencePipelinePulse 1.5s ease-in-out infinite;
-        }
-
-        .reference-pipeline-node.completed .reference-pipeline-icon {
-          color: #27d66a;
-          border-color: rgba(34,197,94,.45);
-          background: rgba(34,197,94,.08);
-        }
-
-        .reference-pipeline-node.error .reference-pipeline-icon {
-          color: #ff7777;
-          border-color: rgba(239,68,68,.40);
-        }
-
-        @keyframes referencePipelinePulse {
-          0%,100% { box-shadow: 0 0 0 5px rgba(126,118,255,.06); }
-          50% { box-shadow: 0 0 0 9px rgba(126,118,255,.03); }
-        }
-
-        .reference-pipeline-node strong {
-          display: block;
-          color: var(--text-primary, #eef1f7);
-          font-size: 13px;
-          line-height: 1.25;
-        }
-
-        .reference-pipeline-node small {
-          display: block;
-          min-height: 30px;
-          margin: 5px auto 7px;
-          max-width: 135px;
-          color: #8792a8;
-          font-size: 10px;
-          line-height: 1.35;
-        }
-
-        .reference-parallel-node {
-          min-width: 0;
-          padding: 0 3px;
-          text-align: center;
-        }
-
-        .reference-parallel-icon {
-          width: 44px;
-          height: 44px;
-          display: grid;
-          place-items: center;
-          margin: 0 auto 8px;
-          border: 1px solid rgba(126,118,255,.28);
-          border-radius: 11px;
-          background: rgba(126,118,255,.07);
-          color: #9996ff;
-        }
-
-        .reference-parallel-node strong {
-          display: block;
-          color: var(--text-primary, #eef1f7);
-          font-size: 13px;
-        }
-
-        .reference-parallel-node > small {
-          display: block;
-          margin: 5px 0 7px;
-          color: #8792a8;
-          font-size: 10px;
-        }
-
-        .reference-agent-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 4px 8px;
-          border-radius: 999px;
-          background: rgba(127,127,127,.08);
-          color: #9ca6b8;
-          font-size: 9px;
-          font-weight: 800;
-        }
-
-        .reference-agent-status.running {
-          color: #9996ff;
-          background: rgba(126,118,255,.11);
-        }
-
-        .reference-agent-status.completed {
-          color: #27d66a;
-          background: rgba(34,197,94,.10);
-        }
-
-        .reference-agent-status.error {
-          color: #ff7777;
-          background: rgba(239,68,68,.10);
-        }
-
-        .reference-status-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: currentColor;
-        }
-
-        .reference-connector {
-          height: 1px;
-          width: 100%;
-          background: rgba(127,127,127,.18);
-        }
-
-        .reference-connector.active {
-          background: rgba(126,118,255,.48);
-        }
-
-        .reference-parallel-strip {
-          grid-column: 5;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0,1fr));
-          gap: 6px;
-          margin: -2px 0 4px;
-        }
-
-        .reference-parallel-mini {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          min-width: 0;
-          padding: 5px 3px;
-          border: 1px solid rgba(126,118,255,.13);
-          border-radius: 7px;
-          background: rgba(126,118,255,.035);
-          color: #929bb1;
-          font: inherit;
-          font-size: 8px;
-          text-align: center;
-          white-space: nowrap;
-          cursor: pointer;
-        }
-
-        .reference-parallel-mini.running {
-          color: #9996ff;
-          border-color: rgba(126,118,255,.35);
-        }
-
-        .reference-parallel-mini.completed {
-          color: #27d66a;
-          border-color: rgba(34,197,94,.28);
-        }
-
-        .reference-workspace-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
-          gap: 20px;
+          grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr);
+          gap: 16px;
           align-items: start;
         }
 
-        .reference-panel {
+        .business-flow-panel {
+          min-width: 0;
           border: 1px solid rgba(127,127,127,.18);
-          border-radius: 18px;
+          border-radius: 20px;
           background: var(--card-bg, #15171d);
           overflow: hidden;
         }
 
-        .reference-panel-header {
+        .business-flow-panel-heading {
           padding: 18px 20px 15px;
-          border-bottom: 1px solid rgba(127,127,127,.13);
+          border-bottom: 1px solid rgba(127,127,127,.12);
         }
 
-        .reference-panel-header h3 {
+        .business-flow-panel-heading h3 {
           margin: 0;
-          color: var(--text-primary, #f1f4f9);
-          font-size: 18px;
-          letter-spacing: -.02em;
+          font-size: 19px;
+          color: var(--text-primary, #f4f6fa);
+          letter-spacing: -.025em;
         }
 
-        .reference-panel-header p {
+        .business-flow-panel-heading p {
           margin: 6px 0 0;
-          color: #8995aa;
-          font-size: 11px;
+          color: #8c98ae;
+          font-size: 12px;
           line-height: 1.5;
         }
 
-        .reference-log-list {
-          padding: 7px 10px 10px;
-        }
-
-        .reference-activity-timeline {
+        .business-timeline {
           position: relative;
-          padding: 8px 12px 12px;
+          padding: 16px 18px 20px;
         }
 
-        .reference-activity-timeline::before {
+        .business-timeline::before {
           content: '';
           position: absolute;
-          left: 29px;
-          top: 27px;
-          bottom: 27px;
+          left: 38px;
+          top: 23px;
+          bottom: 26px;
           width: 1px;
-          background: rgba(126,118,255,.22);
+          background: rgba(126,118,255,.24);
         }
 
-        .reference-activity-event {
+        .business-timeline-item {
           position: relative;
           z-index: 1;
-          display: grid;
-          grid-template-columns: 36px minmax(0,1fr) auto;
-          gap: 11px;
-          align-items: start;
           width: 100%;
-          padding: 13px 8px;
+          display: grid;
+          grid-template-columns: 42px minmax(0,1fr);
+          gap: 13px;
+          align-items: start;
+          margin: 0;
+          padding: 11px 8px;
           border: 0;
-          border-bottom: 1px solid rgba(127,127,127,.07);
+          border-radius: 13px;
           background: transparent;
           color: inherit;
           text-align: left;
           cursor: pointer;
         }
 
-        .reference-activity-event:last-child {
-          border-bottom: 0;
-        }
-
-        .reference-activity-event:hover {
-          border-radius: 11px;
+        .business-timeline-item:hover,
+        .business-timeline-item.selected {
           background: rgba(126,118,255,.055);
         }
 
-        .reference-activity-avatar {
-          width: 34px;
-          height: 34px;
+        .business-timeline-node {
+          width: 42px;
+          height: 42px;
           display: grid;
           place-items: center;
           border-radius: 50%;
-          color: #9996ff;
-          background: #23263d;
-          border: 1px solid rgba(126,118,255,.12);
-          box-shadow: 0 0 0 5px var(--card-bg, #15171d);
+          background: #252942;
+          border: 1px solid rgba(143,140,255,.14);
+          color: #a3a0ff;
+          box-shadow: 0 0 0 6px var(--card-bg, #15171d);
         }
 
-        .reference-activity-avatar.completed {
-          color: #29d66c;
-          background: rgba(34,197,94,.10);
+        .business-timeline-node.completed {
+          background: rgba(34,197,94,.12);
+          color: #2bd86f;
         }
 
-        .reference-activity-avatar.error {
-          color: #ff7777;
-          background: rgba(239,68,68,.10);
+        .business-timeline-node.running {
+          background: rgba(126,118,255,.13);
+          color: #aaa7ff;
+          animation: businessTimelinePulse 1.4s ease-in-out infinite;
         }
 
-        .reference-activity-copy {
+        .business-timeline-node.error {
+          background: rgba(239,68,68,.11);
+          color: #ff7575;
+        }
+
+        .business-timeline-node.orchestrator {
+          background: rgba(126,118,255,.11);
+          color: #aaa7ff;
+        }
+
+        @keyframes businessTimelinePulse {
+          0%,100% { box-shadow: 0 0 0 6px var(--card-bg, #15171d); }
+          50% { box-shadow: 0 0 0 6px var(--card-bg, #15171d), 0 0 0 10px rgba(126,118,255,.08); }
+        }
+
+        .business-timeline-copy {
           min-width: 0;
-        }
-
-        .reference-activity-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .reference-activity-title strong {
-          color: var(--text-primary, #edf1f7);
-          font-size: 14px;
-          line-height: 1.3;
-        }
-
-        .reference-activity-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          color: #9996ff;
-          font-size: 9px;
-          font-weight: 800;
-        }
-
-        .reference-activity-status span {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: currentColor;
-        }
-
-        .reference-activity-status.completed {
-          color: #29d66c;
-        }
-
-        .reference-activity-status.error {
-          color: #ff7777;
-        }
-
-        .reference-activity-message {
           display: block;
-          margin-top: 4px;
-          color: #aeb7c8;
-          font-size: 12px;
-          line-height: 1.5;
-          overflow-wrap: anywhere;
+          padding-top: 1px;
         }
 
-        .reference-activity-time {
-          padding-top: 2px;
-          color: #7f8aa1;
+        .business-timeline-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 8px;
+        }
+
+        .business-timeline-title-row strong {
+          color: var(--text-primary, #f0f2f7);
+          font-size: 15px;
+        }
+
+        .business-timeline-title-row time {
+          color: #7e8aa1;
           font-size: 10px;
           white-space: nowrap;
         }
 
-        html.light .reference-activity-avatar {
-          background: #f0f1ff;
-          box-shadow: 0 0 0 5px #fff;
-        }
-
-        html.light .reference-activity-title strong {
-          color: #182033;
-        }
-
-        html.light .reference-activity-message {
-          color: #536078;
-        }
-
-        @media (max-width: 640px) {
-          .reference-activity-timeline::before {
-            left: 28px;
-          }
-
-          .reference-activity-event {
-            grid-template-columns: 34px minmax(0,1fr);
-            gap: 10px;
-          }
-
-          .reference-activity-time {
-            grid-column: 2;
-            padding-top: 0;
-            margin-top: -2px;
-          }
-        }
-
-        .reference-log-row {
-          display: grid;
-          grid-template-columns: 36px minmax(0,1fr) 18px;
-          gap: 11px;
-          width: 100%;
-          padding: 13px 10px;
-          border: 0;
-          border-bottom: 1px solid rgba(127,127,127,.08);
-          background: transparent;
-          color: inherit;
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .reference-log-row:last-child {
-          border-bottom: 0;
-        }
-
-        .reference-log-row:hover,
-        .reference-log-row.selected {
-          border-radius: 11px;
-          background: rgba(126,118,255,.06);
-        }
-
-        .reference-log-avatar {
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          color: #9794ff;
-          background: rgba(126,118,255,.10);
-          border: 1px solid rgba(126,118,255,.12);
-        }
-
-        .reference-log-avatar.completed {
-          color: #27d66a;
-          background: rgba(34,197,94,.09);
-        }
-
-        .reference-log-avatar.error {
-          color: #ff7777;
-          background: rgba(239,68,68,.09);
-        }
-
-        .reference-log-copy {
-          min-width: 0;
-        }
-
-        .reference-log-title {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-
-        .reference-log-title strong {
-          color: var(--text-primary, #e9edf4);
-          font-size: 13px;
-        }
-
-        .reference-log-message {
+        .business-timeline-message {
           display: block;
           margin-top: 4px;
-          color: #8e99ae;
-          font-size: 11px;
-          line-height: 1.45;
-          overflow-wrap: anywhere;
-        }
-
-        .reference-log-arrow {
-          align-self: center;
-          color: #677287;
-        }
-
-        .reference-empty {
-          padding: 26px 20px;
-          color: #8d99ae;
+          color: #c3c9d5;
           font-size: 12px;
-          text-align: center;
+          line-height: 1.55;
         }
 
-        .reference-output-tabs {
+        .business-timeline-hint {
+          display: block;
+          margin-top: 5px;
+          color: #a7a4ff;
+          font-size: 10px;
+          line-height: 1.4;
+        }
+
+        .business-output-panel {
+          padding-bottom: 18px;
+        }
+
+        .business-agent-tabs {
           display: flex;
           flex-wrap: wrap;
-          gap: 7px;
-          padding: 14px 18px;
-          border-bottom: 1px solid rgba(127,127,127,.12);
+          gap: 8px;
+          padding: 15px 17px 4px;
         }
 
-        .reference-output-tab {
+        .business-agent-tab {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 7px 10px;
-          border: 1px solid rgba(127,127,127,.14);
+          gap: 7px;
+          padding: 8px 11px;
+          border: 1px solid rgba(127,127,127,.18);
           border-radius: 999px;
-          background: rgba(255,255,255,.018);
-          color: #8995aa;
+          background: transparent;
+          color: #a6aec0;
           font: inherit;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
           cursor: pointer;
         }
 
-        .reference-output-tab.active {
-          border-color: rgba(126,118,255,.35);
-          background: #7772f5;
+        .business-agent-tab:hover,
+        .business-agent-tab.active {
+          background: #7772f6;
+          border-color: #7772f6;
           color: #fff;
         }
 
-        .reference-output-body {
-          padding: 19px 20px 21px;
+        .business-agent-tab-status {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          opacity: .75;
         }
 
-        .reference-output-kicker {
-          color: #929bb0;
-          font-size: 9px;
+        .business-output-content {
+          margin: 12px 17px 0;
+          padding: 17px;
+          border: 1px solid rgba(127,127,127,.13);
+          border-radius: 16px;
+          background: rgba(255,255,255,.018);
+        }
+
+        .business-output-kicker {
+          color: #9d9aff;
+          font-size: 10px;
           font-weight: 850;
           letter-spacing: .13em;
           text-transform: uppercase;
         }
 
-        .reference-output-body h3 {
-          margin: 7px 0 5px;
-          color: var(--text-primary, #f0f3f8);
-          font-size: 20px;
+        .business-output-title {
+          margin: 4px 0 2px;
+          color: var(--text-primary, #f3f5f8);
+          font-size: 19px;
+          letter-spacing: -.025em;
         }
 
-        .reference-output-role {
-          color: #8d98ac;
+        .business-output-role {
+          color: #8e9ab0;
           font-size: 11px;
         }
 
-        .reference-detail-block {
-          margin-top: 17px;
-          padding: 12px 13px;
-          border: 1px solid rgba(127,127,127,.11);
-          border-radius: 11px;
-          background: rgba(255,255,255,.018);
+        .business-output-block {
+          margin-top: 14px;
         }
 
-        .reference-detail-label {
+        .business-output-label {
           display: block;
-          margin-bottom: 6px;
-          color: #818ca2;
+          margin-bottom: 5px;
+          color: #8995ad;
           font-size: 9px;
           font-weight: 850;
-          letter-spacing: .11em;
+          letter-spacing: .12em;
           text-transform: uppercase;
         }
 
-        .reference-detail-block p {
+        .business-output-block p {
           margin: 0;
-          color: #c1c8d5;
-          font-size: 11px;
-          line-height: 1.55;
+          color: #c4cad6;
+          font-size: 12px;
+          line-height: 1.6;
         }
 
-        .reference-current-update {
-          border-color: rgba(126,118,255,.15);
+        .business-live-update {
+          margin-top: 14px;
+          padding: 11px 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(126,118,255,.13);
           background: rgba(126,118,255,.045);
         }
 
-        .reference-current-update .reference-detail-label {
-          color: #9a97ff;
-        }
-
-        .reference-plan-panel {
-          margin-top: 20px;
-        }
-
-        .reference-plan-list {
-          display: grid;
-          gap: 8px;
-          padding: 14px 18px 18px;
-        }
-
-        .reference-plan-row {
-          display: grid;
-          grid-template-columns: 28px minmax(0,1fr);
-          gap: 10px;
-          align-items: start;
-          padding: 10px;
-          border: 1px solid rgba(127,127,127,.10);
-          border-radius: 10px;
-          background: rgba(255,255,255,.015);
-        }
-
-        .reference-plan-number {
-          width: 26px;
-          height: 26px;
-          display: grid;
-          place-items: center;
-          border-radius: 8px;
-          background: rgba(126,118,255,.10);
-          color: #9a97ff;
-          font-size: 10px;
-          font-weight: 850;
-        }
-
-        .reference-plan-row strong {
+        .business-live-update strong {
           display: block;
-          color: var(--text-primary, #e8ecf3);
-          font-size: 11px;
-        }
-
-        .reference-plan-row span {
-          display: block;
-          margin-top: 3px;
-          color: #8995aa;
+          margin-bottom: 4px;
+          color: #aaa7ff;
           font-size: 10px;
-          line-height: 1.4;
+          letter-spacing: .08em;
+          text-transform: uppercase;
         }
 
-        .reference-final-ready {
-          margin-top: 20px;
-          padding: 15px 17px;
-          border: 1px solid rgba(34,197,94,.18);
-          border-radius: 15px;
-          background: rgba(34,197,94,.055);
-          color: #28d66c;
-          font-size: 12px;
-          font-weight: 800;
+        .business-run-summary {
+          display: none;
         }
 
-        .reference-workspace :is(
-          .reference-pipeline-card,
-          .reference-panel,
-          .reference-orchestrator,
-          .reference-run-bar
-        ) {
-          color-scheme: dark;
-        }
-
-        html.light .reference-workspace-title,
-        html.light .reference-panel-header h3,
-        html.light .reference-output-body h3,
-        html.light .reference-log-title strong,
-        html.light .reference-plan-row strong {
-          color: #172033;
-        }
-
-        html.light .reference-workspace-query,
-        html.light .reference-panel-header p,
-        html.light .reference-log-message,
-        html.light .reference-output-role,
-        html.light .reference-detail-block p,
-        html.light .reference-plan-row span {
-          color: #59667e;
-        }
-
-        html.light .reference-pipeline-card,
-        html.light .reference-panel {
+        html.light .business-flow-status,
+        html.light .business-orchestrator-card,
+        html.light .business-flow-panel,
+        html.light .business-output-content {
           background: #fff;
           border-color: #dfe4ee;
           box-shadow: 0 10px 30px rgba(25,35,55,.045);
         }
 
-        html.light .reference-orchestrator,
-        html.light .reference-run-bar {
-          background: #fff;
-          border-color: #dfe4ee;
+        html.light .business-timeline::before {
+          background: rgba(88,80,220,.18);
         }
 
-        html.light .reference-detail-block,
-        html.light .reference-plan-row {
-          background: #f8f9fc;
-          border-color: #e3e7ef;
+        html.light .business-timeline-node {
+          background: #f0f1ff;
+          box-shadow: 0 0 0 6px #fff;
         }
 
-        html.light .reference-output-tab {
-          background: #f8f9fc;
-          border-color: #dfe4ee;
-          color: #647089;
+        html.light .business-timeline-item:hover,
+        html.light .business-timeline-item.selected {
+          background: #f7f7ff;
         }
 
-        @media (max-width: 900px) {
-          .reference-workspace-grid {
+        html.light .business-output-block p,
+        html.light .business-timeline-message {
+          color: #536078;
+        }
+
+        html.light .business-timeline-title-row strong,
+        html.light .business-output-title,
+        html.light .business-orchestrator-copy strong,
+        html.light .business-flow-status strong {
+          color: #182033;
+        }
+
+        @media (max-width: 920px) {
+          .business-flow-grid {
             grid-template-columns: 1fr;
           }
         }
 
-        @media (max-width: 700px) {
-          .reference-workspace {
-            padding: 18px 0 40px;
+        @media (max-width: 640px) {
+          .business-flow-page {
+            padding-bottom: 30px;
           }
 
-          .reference-workspace-header {
-            display: block;
-          }
-
-          .reference-live-badge {
-            margin-top: 13px;
-          }
-
-          .reference-pipeline-card {
-            padding: 17px 12px;
-          }
-
-          .reference-pipeline-main {
-            min-width: 900px;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .reference-run-bar {
+          .business-flow-status {
             align-items: flex-start;
             flex-direction: column;
           }
 
-          .reference-workspace-title {
-            font-size: 31px;
+          .business-timeline {
+            padding: 12px 10px 18px;
           }
 
-          .reference-workspace-query {
-            font-size: 13px;
+          .business-timeline::before {
+            left: 30px;
+          }
+
+          .business-timeline-item {
+            grid-template-columns: 34px minmax(0,1fr);
+            gap: 11px;
+            padding: 9px 5px;
+          }
+
+          .business-timeline-node {
+            width: 34px;
+            height: 34px;
+            box-shadow: 0 0 0 5px var(--card-bg, #15171d);
+          }
+
+          html.light .business-timeline-node {
+            box-shadow: 0 0 0 5px #fff;
+          }
+
+          .business-timeline-title-row strong {
+            font-size: 14px;
           }
         }
       `}</style>
 
-      <div className="reference-workspace-header">
-        <div>
-          <span className="reference-workspace-kicker">Research</span>
-          <h2 className="reference-workspace-title">Agent Activity</h2>
-          <p className="reference-workspace-query">
-            {query || 'Start a business research request to see the agent workflow.'}
-          </p>
-        </div>
-
-        <span className="reference-live-badge">
-          <span className="reference-status-dot" />
-          {researching || runningCount > 0 ? 'System Online' : 'System Ready'}
+      <div className="business-flow-hero">
+        <span className="section-kicker">
+          <span className="kicker-line" />
+          Live research execution
         </span>
+        <h2>Agent Activity</h2>
+        <p>
+          Follow the complete execution flow. Every backend progress event is
+          kept in order, so the same agent can appear multiple times as it starts,
+          researches, returns findings, and completes its assigned task.
+        </p>
       </div>
 
-      <div className="reference-run-bar">
-        <span
-          className={`reference-run-status ${
-            researching || runningCount > 0 ? 'running' : completedCount === agents.length ? 'completed' : ''
-          }`}
-        >
-          <span className="reference-run-dot" />
-          {researching ? 'Running' : completedCount === agents.length ? 'Completed' : 'Ready'}
-        </span>
+      <div className="business-objective">
+        <span className="business-objective-label">Research objective</span>
+        <p>{query || 'Your business research request will appear here.'}</p>
+      </div>
 
+      <div className="business-flow-status">
         <span>
-          {researching
-            ? `${runningCount || 1} agent${runningCount === 1 ? '' : 's'} currently working`
-            : executedAgents.length
-              ? `${completedCount} of ${agents.length} agents completed`
-              : 'Waiting to start the research workflow'}
+          <strong>{completedCount}</strong> of <strong>{orderedAgents.length}</strong> agents completed
+          {runningCount ? ` · ${runningCount} currently working` : ''}
+        </span>
+        <span className="business-flow-pill">
+          <span className="dot" />
+          {researching ? 'Live execution' : 'Execution history'}
         </span>
       </div>
 
-      <div className="reference-orchestrator">
-        <span className="reference-orchestrator-icon">
-          <Network size={18} />
+      <div className="business-orchestrator-card">
+        <span className="business-orchestrator-icon">
+          <Network size={20} />
         </span>
-        <span className="reference-orchestrator-copy">
+        <span className="business-orchestrator-copy">
           <strong>Orchestrator · LangGraph workflow controller</strong>
           <span>
-            Coordinates the research run, starts the Planner, fans the work out to Market,
-            Company and Competitor agents, then routes the combined evidence through Analysis,
-            Writer, Reviewer and Final Report.
+            Coordinates the sequence and sends the right task to each specialized
+            business research agent.
           </span>
         </span>
+        <span className="business-orchestrator-arrow">↓</span>
       </div>
 
-      <section className="reference-pipeline-card">
-        <h3 className="reference-pipeline-title">Execution workflow</h3>
-
-        <div className="reference-pipeline-main">
-          {renderPipelineNode(agents[0])}
-          <span className={`reference-connector ${agentProgress[agents[0].name]?.status === 'completed' ? 'active' : ''}`} />
-
-          <div className="reference-parallel-node">
-            <span className="reference-parallel-icon">
-              <Network size={18} />
-            </span>
-            <strong>Parallel Research</strong>
-            <small>3 tasks run together</small>
-            <div className="reference-parallel-strip">
-              {researchAgents.map(agent => {
-                const Icon = agent.icon
-                const status = agentProgress[agent.name]?.status || 'waiting'
-                return (
-                  <button
-                    type="button"
-                    key={agent.name}
-                    className={`reference-parallel-mini ${status}`}
-                    onClick={() => setSelectedAgent(agent.name)}
-                  >
-                    <Icon size={11} />
-                    {agent.name.replace(' Agent', '')}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <span className="reference-connector" />
-          {renderPipelineNode(agents[4], true)}
-          <span className="reference-connector" />
-          {renderPipelineNode(agents[5], true)}
-          <span className="reference-connector" />
-          {renderPipelineNode(agents[6], true)}
-          <span className="reference-connector" />
-          {renderPipelineNode(agents[7], true)}
-        </div>
-      </section>
-
-      <div className="reference-workspace-grid">
-        <section className="reference-panel">
-          <div className="reference-panel-header">
-            <h3>Live execution</h3>
+      <div className="business-flow-grid">
+        <section className="business-flow-panel">
+          <div className="business-flow-panel-heading">
+            <h3>Execution Timeline</h3>
             <p>
-              Select an agent to inspect its current task and latest backend progress.
+              This is the actual event-by-event flow — not just the latest status.
             </p>
           </div>
-
-          <div className="reference-log-list reference-activity-timeline">
-            {agentEvents.length === 0 ? (
-              <div className="reference-empty">
-                Start a research request to see the live agent activity here.
-              </div>
-            ) : (
-              agentEvents.map(renderActivityEvent)
-            )}
+          <div className="business-timeline">
+            {displayEvents.map(renderTimelineItem)}
           </div>
         </section>
 
-        <section className="reference-panel">
-          <div className="reference-panel-header">
-            <h3>Agent output</h3>
+        <section className="business-flow-panel business-output-panel">
+          <div className="business-flow-panel-heading">
+            <h3>Agent Output</h3>
             <p>
-              The selected agent's responsibility, task and actual execution update.
+              Select any agent to see the task it received, its responsibility,
+              output, and the latest updates recorded for that agent.
             </p>
           </div>
 
-          <div className="reference-output-tabs">
-            {agents.map(agent => {
+          <div className="business-agent-tabs">
+            {orderedAgents.map(agent => {
+              const progress = agentProgress[agent.name]
               const Icon = agent.icon
               return (
                 <button
-                  type="button"
                   key={agent.name}
-                  className={`reference-output-tab ${
-                    selectedAgent === agent.name ? 'active' : ''
-                  }`}
+                  type="button"
+                  className={`business-agent-tab ${selectedAgent === agent.name ? 'active' : ''}`}
                   onClick={() => setSelectedAgent(agent.name)}
                 >
-                  <Icon size={12} />
+                  <Icon size={13} />
                   {agent.name.replace(' Agent', '')}
+                  <span className="business-agent-tab-status" />
+                  <span style={{ fontSize: 9, opacity: .85 }}>
+                    {progress?.status === 'completed'
+                      ? '✓'
+                      : progress?.status === 'running'
+                        ? '…'
+                        : ''}
+                  </span>
                 </button>
               )
             })}
           </div>
 
-          <div className="reference-output-body">
-            <span className="reference-output-kicker">
-              {selectedDetails.role}
-            </span>
-            <h3>{selectedAgent}</h3>
-            <span className="reference-output-role">
-              {selectedDetails.task}
-            </span>
+          <div className="business-output-content">
+            {selectedDetails ? (
+              <>
+                <span className="business-output-kicker">
+                  {selectedProgress ? statusLabel(selectedProgress.status) : 'Waiting'}
+                </span>
+                <h4 className="business-output-title">{selectedAgent}</h4>
+                <span className="business-output-role">{selectedDetails.what}</span>
 
-            <div className="reference-detail-block">
-              <span className="reference-detail-label">What this agent does</span>
-              <p>{selectedDetails.what}</p>
-            </div>
+                <div className="business-output-block">
+                  <span className="business-output-label">Task received</span>
+                  <p>{selectedDetails.task}</p>
+                </div>
 
-            <div className="reference-detail-block">
-              <span className="reference-detail-label">Expected output</span>
-              <p>{selectedDetails.output}</p>
-            </div>
+                <div className="business-output-block">
+                  <span className="business-output-label">What this agent is responsible for</span>
+                  <p>{selectedDetails.what}</p>
+                </div>
 
-            <div className="reference-detail-block reference-current-update">
-              <span className="reference-detail-label">
-                {selectedProgress.status === 'waiting'
-                  ? 'Execution state'
-                  : 'Latest backend update'}
-              </span>
-              <p>
-                {selectedProgress.message ||
-                  (selectedProgress.status === 'waiting'
-                    ? 'Waiting to run.'
-                    : activeAgentMessage)}
-              </p>
-            </div>
+                <div className="business-output-block">
+                  <span className="business-output-label">Expected output</span>
+                  <p>{selectedDetails.output}</p>
+                </div>
+
+                <div className="business-output-block">
+                  <span className="business-output-label">Agent activity</span>
+                  {selectedEvents.length ? (
+                    <div style={{ display: 'grid', gap: 7 }}>
+                      {selectedEvents.map((event, index) => (
+                        <div
+                          key={`${event.id}-${index}`}
+                          style={{
+                            display: 'flex',
+                            gap: 8,
+                            alignItems: 'flex-start',
+                            padding: '8px 9px',
+                            borderRadius: 10,
+                            background: 'rgba(126,118,255,.04)',
+                            border: '1px solid rgba(126,118,255,.09)',
+                          }}
+                        >
+                          <span style={{
+                            width: 6,
+                            height: 6,
+                            marginTop: 5,
+                            borderRadius: '50%',
+                            background: event.status === 'completed' ? '#2bd86f' : event.status === 'error' ? '#ff7575' : '#9d9aff',
+                            flex: '0 0 auto',
+                          }} />
+                          <span style={{ minWidth: 0 }}>
+                            <strong style={{ display: 'block', color: 'var(--text-primary, #eef2f8)', fontSize: 11 }}>
+                              {statusLabel(event.status)}
+                            </strong>
+                            <span style={{ display: 'block', marginTop: 2, color: '#8e9ab0', fontSize: 11, lineHeight: 1.45 }}>
+                              {event.message}
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>{selectedProgress?.message || 'This agent has not started yet.'}</p>
+                  )}
+                </div>
+
+                <div className="business-live-update">
+                  <strong>Latest backend update</strong>
+                  <p>{selectedProgress?.message || activeAgentMessage || 'Waiting to run.'}</p>
+                </div>
+              </>
+            ) : (
+              <p>Select an agent to inspect its task and execution details.</p>
+            )}
           </div>
         </section>
       </div>
-
-      <section className="reference-panel reference-plan-panel">
-        <div className="reference-panel-header">
-          <h3>Execution plan</h3>
-          <p>
-            Planner splits the business question into three parallel research tasks before the
-            evidence is merged for analysis.
-          </p>
-        </div>
-
-        <div className="reference-plan-list">
-          {[
-            ['1', 'Market research', detailByAgent['Market Agent'].task],
-            ['2', 'Company research', detailByAgent['Company Agent'].task],
-            ['3', 'Competitor research', detailByAgent['Competitor Agent'].task],
-            ['4', 'Synthesis & report', 'Analysis → Writer → Reviewer → Final Report'],
-          ].map(([number, title, description]) => (
-            <div className="reference-plan-row" key={number}>
-              <span className="reference-plan-number">{number}</span>
-              <span>
-                <strong>{title}</strong>
-                <span>{description}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {agentProgress['Final Report Agent']?.status === 'completed' && (
-        <div className="reference-final-ready">
-          ✓ Final reviewed business research report is ready.
-        </div>
-      )}
     </div>
   )
 }
+
 
 // ---------------------------------------------------------
 // REPORTS
