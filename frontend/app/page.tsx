@@ -272,6 +272,14 @@ type AgentProgress = {
 
 type AgentProgressMap = Record<string, AgentProgress>
 
+type AgentEvent = {
+  id: string
+  agent: string
+  status: AgentExecutionStatus
+  message: string
+  timestamp: number
+}
+
 const createInitialAgentProgress = (): AgentProgressMap =>
   Object.fromEntries(
     agents.map(agent => [
@@ -1260,6 +1268,12 @@ export default function Page() {
       createInitialAgentProgress()
     )
 
+  // Keep the full chronological execution history.
+  // agentProgress stores only the latest state; this list lets the UI show
+  // Planner -> Planner Agent -> research -> analysis as separate events.
+  const [agentEvents, setAgentEvents] =
+    useState<AgentEvent[]>([])
+
   // Shows the latest message emitted by the active agent.
   const [activeAgentMessage, setActiveAgentMessage] =
     useState('Waiting to start research.')
@@ -1466,6 +1480,7 @@ export default function Page() {
     setError('')
     setResearching(true)
     setAgentProgress(createInitialAgentProgress())
+    setAgentEvents([])
     setActiveAgentMessage('Research started.')
 
     // Open the workspace only after validation succeeds.
@@ -1550,9 +1565,23 @@ export default function Page() {
           const { eventName, data } = parsed
 
           if (eventName === 'research_started') {
-            setActiveAgentMessage(
-              typeof data?.message === 'string' ? data.message : 'Research started.'
-            )
+            const message =
+              typeof data?.message === 'string'
+                ? data.message
+                : 'Understanding the objective and drafting an execution plan...'
+
+            const now = Date.now()
+            setActiveAgentMessage(message)
+            setAgentEvents(current => [
+              ...current,
+              {
+                id: `${now}-planner`,
+                agent: 'Planner',
+                status: 'running',
+                message,
+                timestamp: now,
+              },
+            ])
             continue
           }
 
@@ -1562,15 +1591,59 @@ export default function Page() {
             const message = typeof data?.message === 'string' ? data.message : undefined
 
             if (agentName && status) {
+              const fallbackMessages: Record<string, string> = {
+                'Planner Agent': status === 'completed'
+                  ? 'Produced 3 research subtasks: Market, Company and Competitor research.'
+                  : 'Understanding the objective and drafting an execution plan...',
+                'Market Agent': status === 'completed'
+                  ? 'Gathered findings for the market research task.'
+                  : 'Researching market trends, demand and industry signals...',
+                'Company Agent': status === 'completed'
+                  ? 'Gathered findings for the company research task.'
+                  : 'Researching company performance, products and positioning...',
+                'Competitor Agent': status === 'completed'
+                  ? 'Gathered findings for the competitor research task.'
+                  : 'Researching competitors, differentiation and market gaps...',
+                'Analysis Agent': status === 'completed'
+                  ? 'Synthesized the research findings into business insights.'
+                  : 'Analyzing research findings for trends, risks and opportunities...',
+                'Writer Agent': status === 'completed'
+                  ? 'Drafted the complete business research report.'
+                  : 'Writing the business research report...',
+                'Reviewer Agent': status === 'completed'
+                  ? 'Validated the report for clarity, evidence and completeness.'
+                  : 'Reviewing the report for quality and consistency...',
+                'Final Report Agent': status === 'completed'
+                  ? 'Prepared the final reviewed business research report.'
+                  : 'Preparing the final report for delivery...',
+              }
+
+              const eventMessage =
+                message ||
+                fallbackMessages[agentName] ||
+                `${agentName} is working.`
+              const now = Date.now()
+
               setAgentProgress(current => ({
                 ...current,
                 [agentName]: {
                   status,
-                  message: message || current[agentName]?.message || '',
+                  message: eventMessage,
                 },
               }))
 
-              setActiveAgentMessage(message || `${agentName} is working.`)
+              setAgentEvents(current => [
+                ...current,
+                {
+                  id: `${now}-${agentName}-${current.length}`,
+                  agent: agentName,
+                  status,
+                  message: eventMessage,
+                  timestamp: now,
+                },
+              ])
+
+              setActiveAgentMessage(eventMessage)
             }
             continue
           }
@@ -1825,6 +1898,7 @@ export default function Page() {
           onStart={startResearch}
           researching={researching}
           agentProgress={agentProgress}
+          agentEvents={agentEvents}
           activeAgentMessage={activeAgentMessage}
           error={error}
           />
@@ -3177,11 +3251,13 @@ function Workspace({
   query,
   researching,
   agentProgress,
+  agentEvents,
   activeAgentMessage,
 }: {
   query: string
   researching: boolean
   agentProgress: AgentProgressMap
+  agentEvents: AgentEvent[]
   activeAgentMessage: string
 }) {
   const [selectedAgent, setSelectedAgent] = useState('Planner Agent')
@@ -3308,6 +3384,54 @@ function Workspace({
         <strong>{agent.name.replace(' Agent', '')}</strong>
         <small>{agent.description}</small>
         {renderStatus(agent.name)}
+      </button>
+    )
+  }
+
+  const formatEventTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleTimeString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+
+  const eventIcon = (agentName: string) => {
+    if (agentName === 'Planner') return Target
+    return agents.find(agent => agent.name === agentName)?.icon || Activity
+  }
+
+  const renderActivityEvent = (event: AgentEvent) => {
+    const Icon = eventIcon(event.agent)
+    const actualAgent = event.agent === 'Planner' ? 'Planner Agent' : event.agent
+    const plannerCompleted =
+      event.agent === 'Planner Agent' && event.status === 'completed'
+    const message = plannerCompleted
+      ? 'Produced 3 research subtasks: Market, Company and Competitor research.'
+      : event.message
+
+    return (
+      <button
+        type="button"
+        key={event.id}
+        className="reference-activity-event"
+        onClick={() => setSelectedAgent(actualAgent)}
+      >
+        <span className={`reference-activity-avatar ${event.status}`}>
+          <Icon size={16} />
+        </span>
+        <span className="reference-activity-copy">
+          <span className="reference-activity-title">
+            <strong>{event.agent}</strong>
+            <span className={`reference-activity-status ${event.status}`}>
+              <span />
+              {statusLabel(event.status)}
+            </span>
+          </span>
+          <span className="reference-activity-message">{message}</span>
+        </span>
+        <time className="reference-activity-time">
+          {formatEventTime(event.timestamp)}
+        </time>
       </button>
     )
   }
@@ -3736,6 +3860,156 @@ function Workspace({
           padding: 7px 10px 10px;
         }
 
+        .reference-activity-timeline {
+          position: relative;
+          padding: 8px 12px 12px;
+        }
+
+        .reference-activity-timeline::before {
+          content: '';
+          position: absolute;
+          left: 29px;
+          top: 27px;
+          bottom: 27px;
+          width: 1px;
+          background: rgba(126,118,255,.22);
+        }
+
+        .reference-activity-event {
+          position: relative;
+          z-index: 1;
+          display: grid;
+          grid-template-columns: 36px minmax(0,1fr) auto;
+          gap: 11px;
+          align-items: start;
+          width: 100%;
+          padding: 13px 8px;
+          border: 0;
+          border-bottom: 1px solid rgba(127,127,127,.07);
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .reference-activity-event:last-child {
+          border-bottom: 0;
+        }
+
+        .reference-activity-event:hover {
+          border-radius: 11px;
+          background: rgba(126,118,255,.055);
+        }
+
+        .reference-activity-avatar {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          color: #9996ff;
+          background: #23263d;
+          border: 1px solid rgba(126,118,255,.12);
+          box-shadow: 0 0 0 5px var(--card-bg, #15171d);
+        }
+
+        .reference-activity-avatar.completed {
+          color: #29d66c;
+          background: rgba(34,197,94,.10);
+        }
+
+        .reference-activity-avatar.error {
+          color: #ff7777;
+          background: rgba(239,68,68,.10);
+        }
+
+        .reference-activity-copy {
+          min-width: 0;
+        }
+
+        .reference-activity-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .reference-activity-title strong {
+          color: var(--text-primary, #edf1f7);
+          font-size: 14px;
+          line-height: 1.3;
+        }
+
+        .reference-activity-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #9996ff;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .reference-activity-status span {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+
+        .reference-activity-status.completed {
+          color: #29d66c;
+        }
+
+        .reference-activity-status.error {
+          color: #ff7777;
+        }
+
+        .reference-activity-message {
+          display: block;
+          margin-top: 4px;
+          color: #aeb7c8;
+          font-size: 12px;
+          line-height: 1.5;
+          overflow-wrap: anywhere;
+        }
+
+        .reference-activity-time {
+          padding-top: 2px;
+          color: #7f8aa1;
+          font-size: 10px;
+          white-space: nowrap;
+        }
+
+        html.light .reference-activity-avatar {
+          background: #f0f1ff;
+          box-shadow: 0 0 0 5px #fff;
+        }
+
+        html.light .reference-activity-title strong {
+          color: #182033;
+        }
+
+        html.light .reference-activity-message {
+          color: #536078;
+        }
+
+        @media (max-width: 640px) {
+          .reference-activity-timeline::before {
+            left: 28px;
+          }
+
+          .reference-activity-event {
+            grid-template-columns: 34px minmax(0,1fr);
+            gap: 10px;
+          }
+
+          .reference-activity-time {
+            grid-column: 2;
+            padding-top: 0;
+            margin-top: -2px;
+          }
+        }
+
         .reference-log-row {
           display: grid;
           grid-template-columns: 36px minmax(0,1fr) 18px;
@@ -4157,13 +4431,13 @@ function Workspace({
             </p>
           </div>
 
-          <div className="reference-log-list">
-            {executedAgents.length === 0 ? (
+          <div className="reference-log-list reference-activity-timeline">
+            {agentEvents.length === 0 ? (
               <div className="reference-empty">
                 Start a research request to see the live agent activity here.
               </div>
             ) : (
-              executedAgents.map(renderLogRow)
+              agentEvents.map(renderActivityEvent)
             )}
           </div>
         </section>
