@@ -1911,6 +1911,7 @@ export default function Page() {
           query={query}
           researching={researching}
           agentProgress={agentProgress}
+          agentEvents={agentEvents}
           activeAgentMessage={activeAgentMessage}
         />
       )
@@ -3251,13 +3252,13 @@ function Workspace({
   query,
   researching,
   agentProgress,
-  agentEvents,
+  agentEvents = [],
   activeAgentMessage,
 }: {
   query: string
   researching: boolean
   agentProgress: AgentProgressMap
-  agentEvents: AgentEvent[]
+  agentEvents?: AgentEvent[]
   activeAgentMessage: string
 }) {
   const [selectedAgent, setSelectedAgent] = useState('Planner Agent')
