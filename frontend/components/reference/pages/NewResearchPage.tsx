@@ -11,25 +11,36 @@ export default function NewResearchPage({
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  /*
+   * Business Research examples
+   */
   const examples = [
     "Analyze the Indian electric vehicle market and identify the major competitors of Tata Motors.",
     "Compare Amazon, Flipkart, and Reliance Retail based on market position, business strategy, competitors, and future opportunities.",
     "Analyze the Indian fintech market, identify major companies, recent trends, challenges, and potential business opportunities.",
   ];
 
-  const hasQuery = query.trim().length > 0;
+  const hasQuery =
+    query.trim().length > 0;
 
   async function handleSubmit() {
-    const objective = query.trim();
+    const objective =
+      query.trim();
 
-    if (!objective || submitting) {
+    if (
+      !objective ||
+      submitting
+    ) {
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const success = await onSubmit(objective);
+      const success =
+        await onSubmit(
+          objective,
+        );
 
       if (success) {
         setQuery("");
@@ -51,27 +62,32 @@ export default function NewResearchPage({
     }
   }
 
-  function useExample(example: string) {
+  function useExample(
+    example: string,
+  ) {
     setQuery(example);
   }
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      {/* Page heading */}
+      {/* =====================================================
+          PAGE HEADING
+          Same reference format
+          ===================================================== */}
       <div className="mb-6">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-text-primary sm:text-[32px]">
-          Start a Business Research Task
+          Start a Research Task
         </h1>
 
         <p className="mt-2 text-sm leading-6 text-text-secondary sm:text-base">
-          Enter a business research objective and let the
-          agent workflow handle planning, market research,
-          company research, competitor research, analysis,
-          writing, and review.
+          Enter a research objective and let the agent workflow handle planning, research, analysis, writing, and review.
         </p>
       </div>
 
-      {/* Research input card */}
+      {/* =====================================================
+          RESEARCH INPUT CARD
+          Same reference colors and format
+          ===================================================== */}
       <div className="rounded-xl border border-border bg-surface p-5 shadow-subtle sm:p-6">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
@@ -81,12 +97,16 @@ export default function NewResearchPage({
           <textarea
             value={query}
             onChange={(event) =>
-              setQuery(event.target.value)
+              setQuery(
+                event.target.value,
+              )
             }
-            onKeyDown={handleKeyDown}
+            onKeyDown={
+              handleKeyDown
+            }
             rows={3}
-            placeholder="Example: Analyze the latest developments in the Indian EV market and prepare a structured business research report covering key trends, companies, competitors, challenges, and future opportunities."
-            aria-label="Business research objective"
+            placeholder="Example: Analyze the latest developments in Generative AI and prepare a structured report covering key trends, companies, challenges, and future opportunities."
+            aria-label="Research objective"
             className="min-h-[92px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-6 text-text-primary outline-none placeholder:text-text-secondary focus:ring-0 sm:text-base"
             disabled={submitting}
           />
@@ -100,36 +120,52 @@ export default function NewResearchPage({
 
             <Button
               size="sm"
-              onClick={handleSubmit}
-              disabled={!hasQuery || submitting}
+              onClick={
+                handleSubmit
+              }
+              disabled={
+                !hasQuery ||
+                submitting
+              }
             >
               {submitting
                 ? "Starting..."
-                : "Run Business Research"}
+                : "Run Research"}
 
-              <ArrowRight size={15} />
+              <ArrowRight
+                size={15}
+              />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Examples */}
+      {/* =====================================================
+          EXAMPLES
+          Same reference format
+          ===================================================== */}
       <div className="mt-6">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
           Try an example
         </p>
 
         <div className="flex flex-col gap-2">
-          {examples.map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => useExample(example)}
-              className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-left text-sm leading-5 text-text-primary transition hover:border-accent/40 hover:bg-surface-2"
-            >
-              {example}
-            </button>
-          ))}
+          {examples.map(
+            (example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() =>
+                  useExample(
+                    example,
+                  )
+                }
+                className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-left text-sm leading-5 text-text-primary transition hover:border-accent/40 hover:bg-surface-2"
+              >
+                {example}
+              </button>
+            ),
+          )}
         </div>
       </div>
     </div>

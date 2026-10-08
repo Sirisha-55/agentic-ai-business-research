@@ -5,9 +5,12 @@ import {
   FileCheck2,
   Plus,
 } from "lucide-react";
+
 import { useMemo, useState } from "react";
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
 import Button from "./Button";
 
 export default function ReportViewer({
@@ -27,17 +30,18 @@ export default function ReportViewer({
   generatedAt: string | null;
   onNewResearch?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] =
+    useState(false);
 
   /*
    * ---------------------------------------------------------
-   * CLEAN REPORT
+   * CLEAN BUSINESS RESEARCH REPORT
    * ---------------------------------------------------------
    *
-   * The backend generates the actual business research report.
-   * We only normalize unnecessary blank spaces here.
+   * The actual business research content comes from
+   * the backend Writer/Reviewer workflow.
    *
-   * No business content is hard-coded.
+   * Nothing is hard-coded here.
    */
   const cleanReport = useMemo(() => {
     return report
@@ -53,7 +57,9 @@ export default function ReportViewer({
    */
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(cleanReport);
+      await navigator.clipboard.writeText(
+        cleanReport,
+      );
 
       setCopied(true);
 
@@ -67,27 +73,38 @@ export default function ReportViewer({
 
   /*
    * ---------------------------------------------------------
-   * DOWNLOAD REPORT
+   * DOWNLOAD BUSINESS RESEARCH REPORT
    * ---------------------------------------------------------
    *
-   * PDF is intentionally NOT used.
-   *
-   * The generated report is downloaded as Markdown so that
-   * headings, tables, bullets and source links are preserved.
+   * Keeps the complete generated Markdown report including:
+   * - headings
+   * - tables
+   * - bullet points
+   * - source links
    */
   function handleDownload() {
-    const blob = new Blob([cleanReport], {
-      type: "text/markdown;charset=utf-8",
-    });
+    const blob = new Blob(
+      [cleanReport],
+      {
+        type: "text/markdown;charset=utf-8",
+      },
+    );
 
-    const url = URL.createObjectURL(blob);
+    const url =
+      URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
+    const a =
+      document.createElement("a");
+
     a.href = url;
-    a.download = "business-research-report.md";
+
+    a.download =
+      "business-research-report.md";
 
     document.body.appendChild(a);
+
     a.click();
+
     document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
@@ -98,21 +115,28 @@ export default function ReportViewer({
    * GENERATED DATE
    * ---------------------------------------------------------
    */
-  const formattedGeneratedAt = generatedAt
-    ? new Date(generatedAt).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })
-    : null;
+  const formattedGeneratedAt =
+    generatedAt
+      ? new Date(
+          generatedAt,
+        ).toLocaleString(
+          undefined,
+          {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          },
+        )
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-[900px]">
 
       {/* =====================================================
           ACTION BUTTONS
+          SAME REFERENCE STYLE
           ===================================================== */}
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
 
@@ -127,7 +151,9 @@ export default function ReportViewer({
             <Copy size={14} />
           )}
 
-          {copied ? "Copied" : "Copy"}
+          {copied
+            ? "Copied"
+            : "Copy"}
         </Button>
 
         <Button
@@ -152,7 +178,8 @@ export default function ReportViewer({
       </div>
 
       {/* =====================================================
-          REPORT CONTAINER
+          BUSINESS RESEARCH REPORT CONTAINER
+          SAME REFERENCE STYLE
           ===================================================== */}
       <div className="rounded-xl border border-border bg-surface shadow-subtle">
 
@@ -164,7 +191,9 @@ export default function ReportViewer({
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-accent">
             <FileCheck2 size={14} />
 
-            <span>Final Report</span>
+            <span>
+              Final Report
+            </span>
           </div>
 
           <h1 className="mt-2 text-xl font-semibold leading-snug text-text-primary sm:text-2xl">
@@ -175,13 +204,16 @@ export default function ReportViewer({
 
             {formattedGeneratedAt && (
               <span>
-                Generated {formattedGeneratedAt}
+                Generated{" "}
+                {formattedGeneratedAt}
               </span>
             )}
 
             <span>
               {sourcesCount}{" "}
-              {sourcesCount === 1 ? "source" : "sources"}
+              {sourcesCount === 1
+                ? "source"
+                : "sources"}
             </span>
 
             {approved !== null && (
@@ -205,7 +237,7 @@ export default function ReportViewer({
         </div>
 
         {/* ===================================================
-            REPORT BODY
+            BUSINESS RESEARCH REPORT BODY
             =================================================== */}
         <div className="px-6 py-6 sm:px-10 sm:py-8">
 
@@ -275,16 +307,21 @@ export default function ReportViewer({
             "
           >
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[
+                remarkGfm,
+              ]}
               components={{
+
                 /*
                  * ------------------------------------------------
-                 * LINKS
+                 * EXTERNAL SOURCE LINKS
                  * ------------------------------------------------
-                 *
-                 * External sources open in a new tab.
                  */
-                a({ href, children, ...props }) {
+                a({
+                  href,
+                  children,
+                  ...props
+                }) {
                   return (
                     <a
                       href={href}
@@ -299,11 +336,8 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * TABLE
+                 * BUSINESS COMPARISON TABLE
                  * ------------------------------------------------
-                 *
-                 * Keeps long business comparison tables readable
-                 * on smaller screens.
                  */
                 table({ children }) {
                   return (
@@ -317,7 +351,7 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * H1
+                 * REPORT MAIN TITLE
                  * ------------------------------------------------
                  */
                 h1({ children }) {
@@ -330,7 +364,7 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * H2
+                 * REPORT SECTION
                  * ------------------------------------------------
                  */
                 h2({ children }) {
@@ -343,7 +377,7 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * H3
+                 * REPORT SUBSECTION
                  * ------------------------------------------------
                  */
                 h3({ children }) {
@@ -367,10 +401,8 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * SOURCE LIST
+                 * BUSINESS REPORT SOURCE LIST
                  * ------------------------------------------------
-                 *
-                 * Normal Markdown links are still used.
                  */
                 ul({ children }) {
                   return (
@@ -382,7 +414,7 @@ export default function ReportViewer({
 
                 /*
                  * ------------------------------------------------
-                 * PARAGRAPH
+                 * REPORT PARAGRAPH
                  * ------------------------------------------------
                  */
                 p({ children }) {

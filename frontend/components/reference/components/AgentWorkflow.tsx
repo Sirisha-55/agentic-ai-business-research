@@ -32,11 +32,6 @@ interface Stage {
 /*
  * Business Research workflow.
  *
- * IMPORTANT:
- * The visual layout is kept the same as the reference UI.
- * Only the agent names, responsibilities and workflow keys
- * are changed for our Business Research System.
- *
  * Workflow:
  *
  * Planner
@@ -55,6 +50,7 @@ interface Stage {
  *    ↓
  * Final Report
  */
+
 const STAGES: Stage[] = [
   {
     key: "planner",
@@ -117,11 +113,12 @@ const STAGES: Stage[] = [
 /*
  * Get the latest event for a particular agent.
  *
- * Example:
- * Planner running
- * Planner completed
+ * If an agent has:
  *
- * latestEvent() always returns the latest one.
+ * running
+ * completed
+ *
+ * the completed event is used because it is the latest event.
  */
 function latestEvent(
   events: RunEvent[],
@@ -137,8 +134,15 @@ function latestEvent(
 }
 
 /*
- * Convert backend event status into the status expected
- * by AgentCard.
+ * Convert backend event status into AgentCard status.
+ *
+ * Reference colors:
+ *
+ * pending   → Gray
+ * running   → Blue
+ * reviewing → Blue
+ * completed → Green
+ * failed    → Red
  */
 function toStageStatus(
   status: EventStatus | undefined,
@@ -149,15 +153,15 @@ function toStageStatus(
   }
 
   /*
-   * While cancellation is happening, keep the card in
-   * the running state so the existing UI remains intact.
+   * While cancellation is happening,
+   * keep the existing active/running visual.
    */
   if (status === "cancelling") {
     return "running";
   }
 
   /*
-   * Reviewer has its own "reviewing" state in the existing UI.
+   * Reviewer remains blue while it is actively reviewing.
    */
   if (
     status === "running" &&
@@ -166,7 +170,26 @@ function toStageStatus(
     return "reviewing";
   }
 
-  return status as AgentCardStatus;
+  /*
+   * Normal status mapping.
+   */
+  if (status === "pending") {
+    return "pending";
+  }
+
+  if (status === "running") {
+    return "running";
+  }
+
+  if (status === "completed") {
+    return "completed";
+  }
+
+  if (status === "failed") {
+    return "failed";
+  }
+
+  return "pending";
 }
 
 export default function AgentWorkflow({
@@ -194,14 +217,15 @@ export default function AgentWorkflow({
             stage.key === "reviewer";
 
           /*
-           * Final Report is based on the actual final
-           * report readiness.
-           *
-           * For all other agents, use their latest backend
-           * progress event.
+           * Determine current stage status.
            */
           let status: AgentCardStatus;
 
+          /*
+           * Final Report has special handling because
+           * its completed state depends on the actual
+           * final report being ready.
+           */
           if (isFinal) {
             const finalEvent =
               latestEvent(
@@ -211,25 +235,33 @@ export default function AgentWorkflow({
 
             if (
               finalReportReady ||
-              finalEvent?.status === "completed"
+              finalEvent?.status ===
+                "completed"
             ) {
               status = "completed";
             } else if (
-              finalEvent?.status === "running"
+              finalEvent?.status ===
+              "running"
             ) {
               status = "running";
             } else if (
-              finalEvent?.status === "failed"
+              finalEvent?.status ===
+              "failed"
             ) {
               status = "failed";
             } else {
               status = "pending";
             }
           } else {
-            const event = latestEvent(
-              events,
-              stage.key,
-            );
+            /*
+             * All other stages use their latest
+             * backend event.
+             */
+            const event =
+              latestEvent(
+                events,
+                stage.key,
+              );
 
             status = toStageStatus(
               event?.status,
@@ -238,11 +270,18 @@ export default function AgentWorkflow({
           }
 
           /*
-           * Connector becomes green after this stage
-           * completes.
+           * Connector states.
+           *
+           * Completed → GREEN
+           * Running   → BLUE
+           * Waiting   → GRAY
            */
           const connectorDone =
             status === "completed";
+
+          const connectorRunning =
+            status === "running" ||
+            status === "reviewing";
 
           return (
             <Fragment key={stage.key}>
@@ -250,7 +289,9 @@ export default function AgentWorkflow({
                 <AgentCard
                   icon={stage.icon}
                   name={stage.label}
-                  responsibility={stage.responsibility}
+                  responsibility={
+                    stage.responsibility
+                  }
                   status={status}
                   onClick={
                     !isFinal &&
@@ -267,25 +308,33 @@ export default function AgentWorkflow({
 
               {!isLast && (
                 <>
-                  {/* Mobile connector */}
+                  {/* =========================
+                      MOBILE CONNECTOR
+                      ========================= */}
                   <div className="ml-[22px] flex h-6 w-px items-center md:hidden">
                     <span
                       className={`h-full w-px ${
                         connectorDone
                           ? "bg-success/40"
-                          : "bg-border"
+                          : connectorRunning
+                            ? "bg-accent/40"
+                            : "bg-border"
                       }`}
                       aria-hidden
                     />
                   </div>
 
-                  {/* Desktop connector */}
+                  {/* =========================
+                      DESKTOP CONNECTOR
+                      ========================= */}
                   <div className="hidden w-8 shrink-0 md:mt-[22px] md:block lg:w-12">
                     <span
                       className={`block h-px w-full ${
                         connectorDone
                           ? "bg-success/40"
-                          : "bg-border"
+                          : connectorRunning
+                            ? "bg-accent/40"
+                            : "bg-border"
                       }`}
                       aria-hidden
                     />

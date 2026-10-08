@@ -38,7 +38,8 @@ function dateGroupLabel(iso: string): string {
   const now = new Date();
 
   const diffDays = Math.round(
-    (startOfDay(now) - startOfDay(date)) / 86400000,
+    (startOfDay(now) - startOfDay(date)) /
+      86400000,
   );
 
   if (diffDays === 0) {
@@ -49,14 +50,18 @@ function dateGroupLabel(iso: string): string {
     return "Yesterday";
   }
 
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year:
-      date.getFullYear() !== now.getFullYear()
-        ? "numeric"
-        : undefined,
-  });
+  return date.toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      year:
+        date.getFullYear() !==
+        now.getFullYear()
+          ? "numeric"
+          : undefined,
+    },
+  );
 }
 
 /*
@@ -66,18 +71,28 @@ function dateGroupLabel(iso: string): string {
  */
 function groupByDate(
   runs: RunSummary[],
-): { label: string; runs: RunSummary[] }[] {
+): {
+  label: string;
+  runs: RunSummary[];
+}[] {
   const groups: {
     label: string;
     runs: RunSummary[];
   }[] = [];
 
   for (const run of runs) {
-    const label = dateGroupLabel(run.created_at);
+    const label =
+      dateGroupLabel(
+        run.created_at,
+      );
 
-    const lastGroup = groups[groups.length - 1];
+    const lastGroup =
+      groups[groups.length - 1];
 
-    if (lastGroup && lastGroup.label === label) {
+    if (
+      lastGroup &&
+      lastGroup.label === label
+    ) {
       lastGroup.runs.push(run);
     } else {
       groups.push({
@@ -94,6 +109,16 @@ function groupByDate(
  * ---------------------------------------------------------
  * HISTORY PAGE
  * ---------------------------------------------------------
+ *
+ * Reference UI:
+ *
+ * Research History
+ * Every research run you've started, grouped by date.
+ *
+ * The visual styling is handled by the existing
+ * PageHeader, ResearchCard and theme classes.
+ *
+ * Only the business-research data is dynamic.
  */
 export default function HistoryPage({
   runs,
@@ -108,17 +133,21 @@ export default function HistoryPage({
 }) {
   /*
    * Sort newest research runs first.
-   *
-   * This makes the latest business research task appear
-   * at the top of the history.
    */
-  const sortedRuns = [...runs].sort(
+  const sortedRuns = [
+    ...runs,
+  ].sort(
     (a, b) =>
-      new Date(b.created_at).getTime() -
-      new Date(a.created_at).getTime(),
+      new Date(
+        b.created_at,
+      ).getTime() -
+      new Date(
+        a.created_at,
+      ).getTime(),
   );
 
-  const groups = groupByDate(sortedRuns);
+  const groups =
+    groupByDate(sortedRuns);
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,8 +156,8 @@ export default function HistoryPage({
           PAGE HEADER
           ===================================================== */}
       <PageHeader
-        title="Business Research History"
-        subtitle="Review your previous business research tasks, agent execution results, and generated reports."
+        title="Research History"
+        subtitle="Every research run you've started, grouped by date."
       />
 
       {/* =====================================================
@@ -137,15 +166,15 @@ export default function HistoryPage({
       {sortedRuns.length === 0 ? (
         <EmptyState
           icon={History}
-          title="No business research yet"
-          description="Start a business research task to analyze markets, companies, competitors, trends, and opportunities using the AI research agents."
+          title="No research yet"
+          description="Start a new business research task to analyze markets, companies, competitors, trends, and opportunities using the AI research agents."
           action={
             <Button
               size="sm"
               onClick={onStartNew}
             >
               <Sparkles size={14} />
-              Start Business Research
+              Start New Research
             </Button>
           }
         />
@@ -156,34 +185,43 @@ export default function HistoryPage({
            =================================================== */
         <div className="flex flex-col gap-6">
 
-          {groups.map((group) => (
-            <section
-              key={group.label}
-              className="flex flex-col"
-            >
+          {groups.map(
+            (group) => (
+              <section
+                key={group.label}
+                className="flex flex-col"
+              >
 
-              {/* Date */}
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {group.label}
-              </p>
+                {/* Date */}
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  {group.label}
+                </p>
 
-              {/* Research Cards */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.runs.map((run) => (
-                  <ResearchCard
-                    key={run.run_id}
-                    run={run}
-                    selected={
-                      run.run_id === selectedRunId
-                    }
-                    onClick={() =>
-                      onSelectRun(run.run_id)
-                    }
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+                {/* Research Cards */}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.runs.map(
+                    (run) => (
+                      <ResearchCard
+                        key={
+                          run.run_id
+                        }
+                        run={run}
+                        selected={
+                          run.run_id ===
+                          selectedRunId
+                        }
+                        onClick={() =>
+                          onSelectRun(
+                            run.run_id,
+                          )
+                        }
+                      />
+                    ),
+                  )}
+                </div>
+              </section>
+            ),
+          )}
 
         </div>
       )}

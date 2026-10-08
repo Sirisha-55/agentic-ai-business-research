@@ -13,12 +13,36 @@ import {
 import type { PageKey } from "../../pages/pageKey";
 import ThemeToggle from "../ThemeToggle";
 
-const NAV_ITEMS: { key: PageKey; label: string; icon: LucideIcon }[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "new", label: "New Research", icon: Sparkles },
-  { key: "history", label: "Research History", icon: History },
-  { key: "activity", label: "Agent Activity", icon: Bot },
-  { key: "reports", label: "Reports", icon: FileText },
+const NAV_ITEMS: {
+  key: PageKey;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    key: "new",
+    label: "New Research",
+    icon: Sparkles,
+  },
+  {
+    key: "history",
+    label: "Research History",
+    icon: History,
+  },
+  {
+    key: "activity",
+    label: "Agent Activity",
+    icon: Bot,
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    icon: FileText,
+  },
 ];
 
 const GITHUB_URL =
@@ -52,8 +76,14 @@ export default function Sidebar({
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r border-border bg-sidebar transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-[72px]" : "lg:w-64"} w-64`}
+          mobileOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
+        } ${
+          collapsed
+            ? "lg:w-[72px]"
+            : "lg:w-64"
+        } w-64`}
       >
         {/* Header */}
         <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border px-4">
@@ -97,20 +127,35 @@ export default function Sidebar({
                   onNavigate(item.key);
                   onCloseMobile();
                 }}
-                title={collapsed ? item.label : undefined}
-                aria-current={active ? "page" : undefined}
+                title={
+                  collapsed
+                    ? item.label
+                    : undefined
+                }
+                aria-current={
+                  active
+                    ? "page"
+                    : undefined
+                }
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition duration-150 ${
-                  collapsed ? "justify-center" : ""
+                  collapsed
+                    ? "justify-center"
+                    : ""
                 } ${
                   active
                     ? "bg-accent/10 text-accent"
                     : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
                 }`}
               >
-                <Icon size={17} className="shrink-0" />
+                <Icon
+                  size={17}
+                  className="shrink-0"
+                />
 
                 {!collapsed && (
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate">
+                    {item.label}
+                  </span>
                 )}
               </button>
             );
@@ -121,7 +166,9 @@ export default function Sidebar({
         <div className="shrink-0 border-t border-border p-3">
           <div
             className={`flex items-center gap-1 ${
-              collapsed ? "flex-col" : ""
+              collapsed
+                ? "flex-col"
+                : ""
             }`}
           >
             {/* Theme */}
@@ -166,10 +213,14 @@ export default function Sidebar({
               type="button"
               onClick={onToggleCollapse}
               aria-label={
-                collapsed ? "Expand sidebar" : "Collapse sidebar"
+                collapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
               }
               title={
-                collapsed ? "Expand sidebar" : "Collapse sidebar"
+                collapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
               }
               className="
                 hidden h-9 w-9 shrink-0 items-center justify-center

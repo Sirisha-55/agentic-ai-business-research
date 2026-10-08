@@ -25,6 +25,12 @@ import PlanView from "./PlanView";
 import ResearchView from "./ResearchView";
 import ReviewView from "./ReviewView";
 
+/*
+ * Business Research Agents
+ *
+ * Same reference UI structure.
+ * Only agent names/content are Business Research related.
+ */
 const STAGES: {
   key: AgentKey;
   label: string;
@@ -32,42 +38,42 @@ const STAGES: {
 }[] = [
   {
     key: "planner",
-    label: "Planner Agent",
+    label: "Planner",
     icon: ListTodo,
   },
   {
     key: "market",
-    label: "Market Agent",
+    label: "Market",
     icon: Search,
   },
   {
     key: "company",
-    label: "Company Agent",
+    label: "Company",
     icon: Building2,
   },
   {
     key: "competitor",
-    label: "Competitor Agent",
+    label: "Competitor",
     icon: Swords,
   },
   {
     key: "analysis",
-    label: "Analysis Agent",
+    label: "Analysis",
     icon: BrainCircuit,
   },
   {
     key: "writer",
-    label: "Writer Agent",
+    label: "Writer",
     icon: PenLine,
   },
   {
     key: "reviewer",
-    label: "Reviewer Agent",
+    label: "Reviewer",
     icon: ShieldCheck,
   },
   {
     key: "final_report",
-    label: "Final Report Agent",
+    label: "Final Report",
     icon: FileCheck2,
   },
 ];
@@ -92,55 +98,89 @@ export default function AgentOutputView({
   reviewFirst: Review | null;
 }) {
   /*
-   * Research is divided into three agents:
-   * Market, Company and Competitor.
-   *
-   * The current backend supplies the combined
-   * research findings and sources to this component.
+   * Market, Company and Competitor agents
+   * use the research findings collected from Tavily.
    */
   const hasResearchOutput =
-    findings.length > 0 || sources.length > 0;
+    findings.length > 0 ||
+    sources.length > 0;
 
   /*
-   * Final Report becomes available only after
-   * the Reviewer approves the Writer output.
+   * Final Report is available only when:
+   *
+   * 1. Writer has produced a draft
+   * 2. Reviewer approved it
    */
   const finalReportAvailable =
     draftFirst !== null &&
     reviewFirst?.approved === true;
 
-  const hasOutput: Record<AgentKey, boolean> = {
+  /*
+   * Determine which agent has output available.
+   */
+  const hasOutput: Record<
+    AgentKey,
+    boolean
+  > = {
     system: false,
 
-    planner: plan.length > 0,
+    planner:
+      plan.length > 0,
 
-    market: hasResearchOutput,
+    market:
+      hasResearchOutput,
 
-    company: hasResearchOutput,
+    company:
+      hasResearchOutput,
 
-    competitor: hasResearchOutput,
+    competitor:
+      hasResearchOutput,
 
-    analysis: analysis !== null,
+    analysis:
+      analysis !== null,
 
-    writer: draftFirst !== null,
+    writer:
+      draftFirst !== null,
 
-    reviewer: reviewFirst !== null,
+    reviewer:
+      reviewFirst !== null,
 
-    final_report: finalReportAvailable,
+    final_report:
+      finalReportAvailable,
   };
 
-  const availableStages = STAGES.filter(
-    (stage) => hasOutput[stage.key],
-  );
+  /*
+   * Agents whose output can currently
+   * be displayed.
+   */
+  const availableStages =
+    STAGES.filter(
+      (stage) =>
+        hasOutput[stage.key],
+    );
 
+  /*
+   * Keep the selected agent if its output
+   * is available.
+   *
+   * Otherwise automatically select the
+   * first available business research agent.
+   */
   const effectiveAgent =
-    selectedAgent && hasOutput[selectedAgent]
+    selectedAgent &&
+    hasOutput[selectedAgent]
       ? selectedAgent
-      : (availableStages[0]?.key ?? null);
+      : (
+          availableStages[0]?.key ??
+          null
+        );
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Agent selector */}
+      {/* =====================================================
+          AGENT OUTPUT
+          Same reference style and colors
+          ===================================================== */}
       <section className="rounded-xl border border-border bg-surface p-5 shadow-subtle">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
           Agent output
@@ -154,13 +194,17 @@ export default function AgentOutputView({
         ) : (
           <div className="flex flex-wrap gap-2">
             {STAGES.map((stage) => {
-              const Icon = stage.icon;
+              const Icon =
+                stage.icon;
 
               const available =
-                hasOutput[stage.key];
+                hasOutput[
+                  stage.key
+                ];
 
               const selected =
-                stage.key === effectiveAgent;
+                stage.key ===
+                effectiveAgent;
 
               return (
                 <button
@@ -168,7 +212,9 @@ export default function AgentOutputView({
                   type="button"
                   disabled={!available}
                   onClick={() =>
-                    onSelectAgent(stage.key)
+                    onSelectAgent(
+                      stage.key,
+                    )
                   }
                   className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition duration-150 ${
                     selected
@@ -179,6 +225,7 @@ export default function AgentOutputView({
                   }`}
                 >
                   <Icon size={13} />
+
                   {stage.label}
                 </button>
               );
@@ -187,63 +234,89 @@ export default function AgentOutputView({
         )}
       </section>
 
-      {/* Planner */}
-      {effectiveAgent === "planner" && (
-        <PlanView plan={plan} />
+      {/* =====================================================
+          PLANNER
+          ===================================================== */}
+      {effectiveAgent ===
+        "planner" && (
+        <PlanView
+          plan={plan}
+        />
       )}
 
-      {/* Market */}
-      {effectiveAgent === "market" && (
+      {/* =====================================================
+          MARKET
+          ===================================================== */}
+      {effectiveAgent ===
+        "market" && (
         <ResearchView
           findings={findings}
           sources={sources}
         />
       )}
 
-      {/* Company */}
-      {effectiveAgent === "company" && (
+      {/* =====================================================
+          COMPANY
+          ===================================================== */}
+      {effectiveAgent ===
+        "company" && (
         <ResearchView
           findings={findings}
           sources={sources}
         />
       )}
 
-      {/* Competitor */}
-      {effectiveAgent === "competitor" && (
+      {/* =====================================================
+          COMPETITOR
+          ===================================================== */}
+      {effectiveAgent ===
+        "competitor" && (
         <ResearchView
           findings={findings}
           sources={sources}
         />
       )}
 
-      {/* Analysis */}
-      {effectiveAgent === "analysis" && (
+      {/* =====================================================
+          ANALYSIS
+          ===================================================== */}
+      {effectiveAgent ===
+        "analysis" && (
         <AnalysisView
           analysis={analysis}
         />
       )}
 
-      {/* Writer */}
-      {effectiveAgent === "writer" && (
+      {/* =====================================================
+          WRITER
+          ===================================================== */}
+      {effectiveAgent ===
+        "writer" && (
         <DraftView
           draft={draftFirst}
-          title="Writer draft"
+          title="Business Research Report Draft"
         />
       )}
 
-      {/* Reviewer */}
-      {effectiveAgent === "reviewer" && (
+      {/* =====================================================
+          REVIEWER
+          ===================================================== */}
+      {effectiveAgent ===
+        "reviewer" && (
         <ReviewView
           review={reviewFirst}
-          title="Reviewer result"
+          title="Business Research Review"
         />
       )}
 
-      {/* Final Report */}
-      {effectiveAgent === "final_report" && (
+      {/* =====================================================
+          FINAL REPORT
+          ===================================================== */}
+      {effectiveAgent ===
+        "final_report" && (
         <DraftView
           draft={draftFirst}
-          title="Final research report"
+          title="Final Business Research Report"
         />
       )}
     </div>
