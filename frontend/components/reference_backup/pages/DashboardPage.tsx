@@ -1,11 +1,4 @@
-import {
-  Bot,
-  CheckCircle2,
-  ClipboardList,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-
+import { Bot, CheckCircle2, ClipboardList, ShieldCheck, Sparkles } from "lucide-react";
 import Button from "../components/Button";
 import EmptyState from "../components/EmptyState";
 import ResearchCard from "../components/ResearchCard";
@@ -21,81 +14,43 @@ export default function DashboardPage({
   onSelectRun: (id: string) => void;
   onStartNew: () => void;
 }) {
-  const completed = runs.filter(
-    (run) => run.status === "completed",
-  ).length;
-
-  const approved = runs.filter(
-    (run) => run.approved === true,
-  ).length;
+  const completed = runs.filter((r) => r.status === "completed").length;
+  const approved = runs.filter((r) => r.approved === true).length;
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Hero Section */}
       <div className="rounded-xl border border-border bg-surface p-6 shadow-subtle sm:p-8">
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-text-primary sm:text-[32px]">
             Agentic AI Business Research System
           </h1>
-
           <p className="mt-2 text-sm text-text-secondary sm:text-base">
-            Transform business research objectives into structured,
-            evidence-based reports using autonomous AI agents.
+            Transform business research objectives into structured, evidence-based reports using specialized
+            AI agents.
           </p>
-
-          <Button
-            className="mx-auto mt-5"
-            onClick={onStartNew}
-          >
+          <Button className="mx-auto mt-5" onClick={onStartNew}>
             <Sparkles size={15} />
             Start New Research
           </Button>
         </div>
       </div>
 
-      {/* Statistics */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          icon={ClipboardList}
-          label="Research Tasks"
-          value={runs.length}
-        />
-
-        <StatCard
-          icon={CheckCircle2}
-          label="Completed Reports"
-          value={completed}
-        />
-
-        <StatCard
-          icon={Bot}
-          label="Active Agents"
-          value={8}
-        />
-
-        <StatCard
-          icon={ShieldCheck}
-          label="Approved Reports"
-          value={approved}
-        />
+        <StatCard icon={ClipboardList} label="Business Research Tasks" value={runs.length} />
+        <StatCard icon={CheckCircle2} label="Completed Reports" value={completed} />
+        <StatCard icon={Bot} label="Active Agents" value={8} />
+        <StatCard icon={ShieldCheck} label="Approved Reports" value={approved} />
       </div>
 
-      {/* Recent Research */}
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-text-primary">
-          Recent Business Research
-        </h2>
-
+        <h2 className="mb-3 text-lg font-semibold text-text-primary">Recent Business Research</h2>
         {runs.length === 0 ? (
           <EmptyState
             icon={Sparkles}
             title="No research tasks yet"
             description="Start your first business research task to see the agent execution and final report here."
             action={
-              <Button
-                size="sm"
-                onClick={onStartNew}
-              >
+              <Button size="sm" onClick={onStartNew}>
                 <Sparkles size={14} />
                 Start Research
               </Button>
@@ -104,13 +59,7 @@ export default function DashboardPage({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {runs.slice(0, 6).map((run) => (
-              <ResearchCard
-                key={run.run_id}
-                run={run}
-                onClick={() =>
-                  onSelectRun(run.run_id)
-                }
-              />
+              <ResearchCard key={run.run_id} run={run} onClick={() => onSelectRun(run.run_id)} />
             ))}
           </div>
         )}

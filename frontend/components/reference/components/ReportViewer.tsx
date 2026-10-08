@@ -1,5 +1,11 @@
-import { Check, Copy, Download, FileCheck2, Plus } from "lucide-react";
-import { useState } from "react";
+import {
+  Check,
+  Copy,
+  Download,
+  FileCheck2,
+  Plus,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Button from "./Button";
@@ -23,78 +29,393 @@ export default function ReportViewer({
 }) {
   const [copied, setCopied] = useState(false);
 
+  /*
+   * ---------------------------------------------------------
+   * CLEAN REPORT
+   * ---------------------------------------------------------
+   *
+   * The backend generates the actual business research report.
+   * We only normalize unnecessary blank spaces here.
+   *
+   * No business content is hard-coded.
+   */
+  const cleanReport = useMemo(() => {
+    return report
+      .replace(/\r\n/g, "\n")
+      .replace(/\n{4,}/g, "\n\n\n")
+      .trim();
+  }, [report]);
+
+  /*
+   * ---------------------------------------------------------
+   * COPY REPORT
+   * ---------------------------------------------------------
+   */
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(report);
+      await navigator.clipboard.writeText(cleanReport);
+
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1800);
     } catch {
-      // clipboard API unavailable; silently ignore
+      // Clipboard API unavailable.
     }
   }
 
+  /*
+   * ---------------------------------------------------------
+   * DOWNLOAD REPORT
+   * ---------------------------------------------------------
+   *
+   * PDF is intentionally NOT used.
+   *
+   * The generated report is downloaded as Markdown so that
+   * headings, tables, bullets and source links are preserved.
+   */
   function handleDownload() {
-    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([cleanReport], {
+      type: "text/markdown;charset=utf-8",
+    });
+
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = "research-report.md";
+    a.download = "business-research-report.md";
+
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+
     URL.revokeObjectURL(url);
   }
 
+  /*
+   * ---------------------------------------------------------
+   * GENERATED DATE
+   * ---------------------------------------------------------
+   */
+  const formattedGeneratedAt = generatedAt
+    ? new Date(generatedAt).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
     <div className="mx-auto w-full max-w-[900px]">
+
+      {/* =====================================================
+          ACTION BUTTONS
+          ===================================================== */}
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={handleCopy}>
-          {copied ? <Check size={14} /> : <Copy size={14} />}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopy}
+        >
+          {copied ? (
+            <Check size={14} />
+          ) : (
+            <Copy size={14} />
+          )}
+
           {copied ? "Copied" : "Copy"}
         </Button>
-        <Button variant="outline" size="sm" onClick={handleDownload}>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownload}
+        >
           <Download size={14} />
           Download
         </Button>
+
         {onNewResearch && (
-          <Button variant="primary" size="sm" onClick={onNewResearch}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onNewResearch}
+          >
             <Plus size={14} />
             New Research
           </Button>
         )}
       </div>
 
+      {/* =====================================================
+          REPORT CONTAINER
+          ===================================================== */}
       <div className="rounded-xl border border-border bg-surface shadow-subtle">
+
+        {/* ===================================================
+            REPORT HEADER
+            =================================================== */}
         <div className="border-b border-border px-6 py-5 sm:px-10 sm:py-8">
+
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-accent">
             <FileCheck2 size={14} />
-            Final Report
+
+            <span>Final Report</span>
           </div>
-          <h1 className="mt-2 text-xl font-semibold leading-snug text-text-primary sm:text-2xl">{objective}</h1>
+
+          <h1 className="mt-2 text-xl font-semibold leading-snug text-text-primary sm:text-2xl">
+            {objective}
+          </h1>
+
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-text-muted">
-            {generatedAt && (
+
+            {formattedGeneratedAt && (
               <span>
-                Generated{" "}
-                {new Date(generatedAt).toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                Generated {formattedGeneratedAt}
               </span>
             )}
-            <span>{sourcesCount} sources</span>
+
+            <span>
+              {sourcesCount}{" "}
+              {sourcesCount === 1 ? "source" : "sources"}
+            </span>
+
             {approved !== null && (
-              <span className={approved ? "text-success" : "text-text-muted"}>
-                {approved ? "Approved" : "Delivered after revision"} · {revisionCount} revision
-                {revisionCount === 1 ? "" : "s"}
+              <span
+                className={
+                  approved
+                    ? "text-success"
+                    : "text-text-muted"
+                }
+              >
+                {approved
+                  ? "Approved"
+                  : "Delivered after revision"}{" "}
+                · {revisionCount}{" "}
+                {revisionCount === 1
+                  ? "revision"
+                  : "revisions"}
               </span>
             )}
           </div>
         </div>
 
+        {/* ===================================================
+            REPORT BODY
+            =================================================== */}
         <div className="px-6 py-6 sm:px-10 sm:py-8">
-          <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-accent prose-table:text-xs prose-thead:border-border prose-tr:border-border prose-code:text-text-primary prose-pre:bg-surface-2">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
+
+          <article
+            className="
+              prose
+              prose-sm
+              dark:prose-invert
+              max-w-none
+
+              prose-headings:font-semibold
+              prose-headings:tracking-tight
+              prose-headings:text-text-primary
+
+              prose-h1:mb-5
+              prose-h1:mt-0
+              prose-h1:text-2xl
+
+              prose-h2:mb-3
+              prose-h2:mt-8
+              prose-h2:text-xl
+
+              prose-h3:mb-2
+              prose-h3:mt-6
+              prose-h3:text-base
+
+              prose-p:leading-7
+              prose-p:text-text-secondary
+
+              prose-li:text-text-secondary
+              prose-li:leading-6
+
+              prose-strong:text-text-primary
+
+              prose-a:text-accent
+              prose-a:no-underline
+              hover:prose-a:underline
+
+              prose-table:w-full
+              prose-table:text-xs
+              prose-table:overflow-hidden
+
+              prose-thead:border-border
+              prose-thead:bg-surface-2
+
+              prose-th:px-3
+              prose-th:py-2
+              prose-th:text-left
+              prose-th:font-semibold
+              prose-th:text-text-primary
+
+              prose-td:border-border
+              prose-td:px-3
+              prose-td:py-2
+              prose-td:text-text-secondary
+              prose-td:align-top
+
+              prose-tr:border-border
+
+              prose-blockquote:border-l-accent
+              prose-blockquote:text-text-secondary
+
+              prose-code:text-text-primary
+              prose-pre:bg-surface-2
+              prose-pre:border
+              prose-pre:border-border
+            "
+          >
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                /*
+                 * ------------------------------------------------
+                 * LINKS
+                 * ------------------------------------------------
+                 *
+                 * External sources open in a new tab.
+                 */
+                a({ href, children, ...props }) {
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * TABLE
+                 * ------------------------------------------------
+                 *
+                 * Keeps long business comparison tables readable
+                 * on smaller screens.
+                 */
+                table({ children }) {
+                  return (
+                    <div className="my-5 w-full overflow-x-auto rounded-lg border border-border">
+                      <table className="m-0 w-full min-w-[620px]">
+                        {children}
+                      </table>
+                    </div>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * H1
+                 * ------------------------------------------------
+                 */
+                h1({ children }) {
+                  return (
+                    <h1 className="mb-5 mt-0 border-b border-border pb-3 text-2xl font-semibold tracking-tight text-text-primary">
+                      {children}
+                    </h1>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * H2
+                 * ------------------------------------------------
+                 */
+                h2({ children }) {
+                  return (
+                    <h2 className="mb-3 mt-9 text-xl font-semibold tracking-tight text-text-primary">
+                      {children}
+                    </h2>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * H3
+                 * ------------------------------------------------
+                 */
+                h3({ children }) {
+                  return (
+                    <h3 className="mb-2 mt-6 text-base font-semibold text-text-primary">
+                      {children}
+                    </h3>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * HORIZONTAL RULE
+                 * ------------------------------------------------
+                 */
+                hr() {
+                  return (
+                    <div className="my-7 border-t border-border" />
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * SOURCE LIST
+                 * ------------------------------------------------
+                 *
+                 * Normal Markdown links are still used.
+                 */
+                ul({ children }) {
+                  return (
+                    <ul className="my-4 space-y-1.5 pl-5">
+                      {children}
+                    </ul>
+                  );
+                },
+
+                /*
+                 * ------------------------------------------------
+                 * PARAGRAPH
+                 * ------------------------------------------------
+                 */
+                p({ children }) {
+                  return (
+                    <p className="my-3 leading-7 text-text-secondary">
+                      {children}
+                    </p>
+                  );
+                },
+              }}
+            >
+              {cleanReport}
+            </ReactMarkdown>
           </article>
+        </div>
+
+        {/* ===================================================
+            REPORT FOOTER
+            =================================================== */}
+        <div className="border-t border-border px-6 py-4 sm:px-10">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
+
+            <span>
+              Generated by the Agentic AI Business Research System
+            </span>
+
+            {approved === true && (
+              <span className="flex items-center gap-1.5 text-success">
+                <Check size={13} />
+                Reviewed and approved
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

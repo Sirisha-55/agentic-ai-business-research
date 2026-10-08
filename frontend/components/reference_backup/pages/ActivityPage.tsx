@@ -6,7 +6,6 @@ import Button from "../components/Button";
 import ErrorState from "../components/ErrorState";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
-
 import type {
   AgentKey,
   Analysis,
@@ -30,6 +29,8 @@ export default function ActivityPage({
   analysis,
   draftFirst,
   reviewFirst,
+  draftRevision,
+  reviewRevision,
   finalReport,
   revisionPending,
   neverApproved,
@@ -49,6 +50,8 @@ export default function ActivityPage({
   analysis: Analysis | null;
   draftFirst: string | null;
   reviewFirst: Review | null;
+  draftRevision: string | null;
+  reviewRevision: Review | null;
   finalReport: string | null;
   revisionPending: boolean;
   neverApproved: boolean;
@@ -84,16 +87,11 @@ export default function ActivityPage({
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-subtle">
         <StatusBadge status={runStatus.status} />
-        <span className="text-xs text-text-muted">
-          Run ID: {runStatus.run_id}
-        </span>
+        <span className="text-xs text-text-muted">Run ID: {runStatus.run_id}</span>
       </div>
 
       {runStatus.status === "failed" && (
-        <ErrorState
-          details={runStatus.error}
-          onRetry={onRetry}
-        />
+        <ErrorState details={runStatus.error} onRetry={onRetry} />
       )}
 
       <AgentWorkflow
@@ -104,19 +102,16 @@ export default function ActivityPage({
 
       {revisionPending && (
         <p className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
-          The Reviewer Agent rejected the first draft — the Writer
-          Agent is producing a revised report. The report will be
-          ready once the revision is reviewed.
+          The Reviewer Agent rejected the first draft — the Writer Agent is producing a revised report. The
+          report will be ready once the revision is reviewed.
         </p>
       )}
-
       {neverApproved && (
         <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">
-          The Reviewer Agent rejected the report. No final report
-          was approved.
+          The Reviewer Agent rejected the revised draft too. No final report was approved — see the
+          Writer Agent (Revision) and Reviewer Agent (Revision) output below for the best-effort result.
         </p>
       )}
-
       {finalReport && (
         <p className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
           <CheckCircle2 size={15} />
@@ -126,7 +121,6 @@ export default function ActivityPage({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <AgentTimeline events={events} />
-
         <AgentOutputView
           selectedAgent={selectedAgent}
           onSelectAgent={onSelectAgent}
@@ -136,6 +130,8 @@ export default function ActivityPage({
           analysis={analysis}
           draftFirst={draftFirst}
           reviewFirst={reviewFirst}
+          draftRevision={draftRevision}
+          reviewRevision={reviewRevision}
         />
       </div>
     </div>

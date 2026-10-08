@@ -18,68 +18,167 @@ from app.agents.final_report import final_report_agent
 # =========================================================
 # PROGRESS CALLBACK
 # =========================================================
+#
 # Sends live progress information to the FastAPI SSE layer.
 #
-# The frontend can therefore show:
+# Frontend receives:
 #
-# waiting
-# running
-# completed
-# error
+#     agent
+#     status
+#     message
 #
-# for every agent in the workflow.
+# Example:
+#
+# Planner Agent
+#   running
+#   "Understanding the business objective..."
+#
+# Planner Agent
+#   completed
+#   "Produced 3 focused business research subtasks."
+#
 # =========================================================
+
 
 def emit_progress(
     config: RunnableConfig,
     agent: str,
     status: str,
-    message: str
+    message: str,
 ):
+    """
+    Send a progress event to the request-scoped SSE callback.
+    """
+
     configurable = config.get("configurable", {})
     callback = configurable.get("progress_callback")
 
     if callback is not None:
-        callback({
-            "agent": agent,
-            "status": status,
-            "message": message
-        })
+        callback(
+            {
+                "agent": agent,
+                "status": status,
+                "message": message,
+            }
+        )
+
+
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
+
+
+def normalize_task(task: Any) -> Any:
+    """
+    Convert common task objects into dictionaries when possible.
+    """
+
+    if hasattr(task, "model_dump"):
+        try:
+            return task.model_dump()
+        except Exception:
+            pass
+
+    return task
+
+
+def readable_task(task: Any) -> str:
+    """
+    Convert a Planner task into readable text for the live
+    Agent Activity timeline.
+    """
+
+    task = normalize_task(task)
+
+    if isinstance(task, dict):
+        title = str(
+            task.get("title")
+            or task.get("name")
+            or ""
+        ).strip()
+
+        description = str(
+            task.get("description")
+            or task.get("query")
+            or task.get("objective")
+            or ""
+        ).strip()
+
+        if title and description:
+            return f"{title}: {description}"
+
+        if title:
+            return title
+
+        if description:
+            return description
+
+    return str(task).strip()
+
+
+def research_count(
+    result: Any,
+    keys: tuple[str, ...],
+) -> int | None:
+    """
+    Return a count when the research result contains a list-like
+    field such as findings or sources.
+
+    Returns None when the result structure does not expose such
+    a field.
+    """
+
+    result = normalize_task(result)
+
+    if not isinstance(result, dict):
+        return None
+
+    for key in keys:
+        value = result.get(key)
+
+        if isinstance(value, (list, tuple, set)):
+            return len(value)
+
+    return None
 
 
 # =========================================================
 # PLANNER NODE
 # =========================================================
-# Converts the original business question into focused
-# research tasks.
-# =========================================================
+
 
 def planner_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Planner Agent:
+    Understands the business question and creates focused
+    research tasks.
+    """
 
     emit_progress(
         config,
         "Planner Agent",
         "running",
-        "Breaking the research question into focused tasks."
+        "Understanding the business objective and drafting an execution plan...",
     )
 
-    # Get the original user question.
     user_query = state["user_query"]
 
-    # Generate the research plan.
+    # Create the research plan.
     research_plan = planner_agent(user_query)
+
+    task_count = len(research_plan)
 
     emit_progress(
         config,
         "Planner Agent",
         "completed",
-        "Research plan created."
+        f"Produced {task_count} focused business research "
+        f"subtask{'s' if task_count != 1 else ''}.",
     )
 
-    # Store the plan in shared LangGraph state.
     return {
         "research_plan": research_plan
     }
@@ -88,33 +187,82 @@ def planner_node(
 # =========================================================
 # MARKET RESEARCH NODE
 # =========================================================
-# Researches market size, growth, demand, trends,
-# regulations and other market-level information.
-# =========================================================
+
 
 def market_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Market Agent:
+    Researches market conditions, trends, demand and
+    relevant industry developments.
+    """
+
+    # Get the first task created by the Planner.
+    task = state["research_plan"][0]
+
+    task_description = readable_task(task)
 
     emit_progress(
         config,
         "Market Agent",
         "running",
-        "Researching market size, trends and demand."
+        f"Researching the market task: {task_description}. "
+        "Searching market size, growth, demand, trends and "
+        "recent industry developments with Tavily web search...",
     )
 
-    # The Planner Agent creates the market task first.
-    task = state["research_plan"][0]
-
-    # Run market web research.
+    # Perform market research.
     results = market_agent(task)
+
+    finding_count = research_count(
+        results,
+        (
+            "findings",
+            "research_findings",
+            "results",
+            "items",
+        ),
+    )
+
+    source_count = research_count(
+        results,
+        (
+            "sources",
+            "source_urls",
+            "references",
+        ),
+    )
+
+    if finding_count is not None and source_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} market finding"
+            f"{'s' if finding_count != 1 else ''} "
+            f"from {source_count} source"
+            f"{'s' if source_count != 1 else ''}. "
+            "Covered market size, growth, demand, trends and "
+            "industry developments."
+        )
+    elif finding_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} market finding"
+            f"{'s' if finding_count != 1 else ''} "
+            "covering market size, growth, demand, trends and "
+            "industry developments."
+        )
+    else:
+        completed_message = (
+            "Gathered market research covering market size, "
+            "growth, demand, trends and relevant industry "
+            "developments."
+        )
 
     emit_progress(
         config,
         "Market Agent",
         "completed",
-        "Market research completed."
+        completed_message,
     )
 
     return {
@@ -125,33 +273,81 @@ def market_node(
 # =========================================================
 # COMPANY RESEARCH NODE
 # =========================================================
-# Researches important companies, products, business
-# activity, expansion, partnerships and other company data.
-# =========================================================
+
 
 def company_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Company Agent:
+    Researches company profile, products, positioning,
+    strategy and business context.
+    """
+
+    # Get the company research task.
+    task = state["research_plan"][1]
+
+    task_description = readable_task(task)
 
     emit_progress(
         config,
         "Company Agent",
         "running",
-        "Collecting company and business information."
+        f"Researching the company task: {task_description}. "
+        "Investigating company profile, products, positioning, "
+        "business performance and strategy...",
     )
 
-    # The Planner Agent creates the company research task.
-    task = state["research_plan"][1]
-
-    # Run company research.
+    # Perform company research.
     results = company_agent(task)
+
+    finding_count = research_count(
+        results,
+        (
+            "findings",
+            "research_findings",
+            "results",
+            "items",
+        ),
+    )
+
+    source_count = research_count(
+        results,
+        (
+            "sources",
+            "source_urls",
+            "references",
+        ),
+    )
+
+    if finding_count is not None and source_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} company finding"
+            f"{'s' if finding_count != 1 else ''} "
+            f"from {source_count} source"
+            f"{'s' if source_count != 1 else ''}. "
+            "Covered company profile, products, positioning, "
+            "business direction and strategic context."
+        )
+    elif finding_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} company finding"
+            f"{'s' if finding_count != 1 else ''} "
+            "covering company profile, products, positioning, "
+            "business direction and strategy."
+        )
+    else:
+        completed_message = (
+            "Gathered company research covering company profile, "
+            "products, positioning, business direction and strategy."
+        )
 
     emit_progress(
         config,
         "Company Agent",
         "completed",
-        "Company research completed."
+        completed_message,
     )
 
     return {
@@ -162,33 +358,81 @@ def company_node(
 # =========================================================
 # COMPETITOR RESEARCH NODE
 # =========================================================
-# Identifies direct, indirect and emerging competitors
-# and collects competitive information.
-# =========================================================
+
 
 def competitor_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Competitor Agent:
+    Identifies competitors and compares competitive
+    positioning, differentiation and market gaps.
+    """
+
+    # Get the competitor research task.
+    task = state["research_plan"][2]
+
+    task_description = readable_task(task)
 
     emit_progress(
         config,
         "Competitor Agent",
         "running",
-        "Identifying competitors and comparing strategies."
+        f"Researching the competitor task: {task_description}. "
+        "Identifying competitors and comparing positioning, "
+        "differentiation, strengths, threats and market gaps...",
     )
 
-    # The Planner Agent creates the competitor research task.
-    task = state["research_plan"][2]
-
-    # Run competitor research.
+    # Perform competitor research.
     results = competitor_agent(task)
+
+    finding_count = research_count(
+        results,
+        (
+            "findings",
+            "research_findings",
+            "results",
+            "items",
+        ),
+    )
+
+    source_count = research_count(
+        results,
+        (
+            "sources",
+            "source_urls",
+            "references",
+        ),
+    )
+
+    if finding_count is not None and source_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} competitor finding"
+            f"{'s' if finding_count != 1 else ''} "
+            f"from {source_count} source"
+            f"{'s' if source_count != 1 else ''}. "
+            "Compared competitive positioning, differentiation, "
+            "strategies, threats and market gaps."
+        )
+    elif finding_count is not None:
+        completed_message = (
+            f"Gathered {finding_count} competitor finding"
+            f"{'s' if finding_count != 1 else ''} "
+            "covering competitive positioning, differentiation, "
+            "strategies and market gaps."
+        )
+    else:
+        completed_message = (
+            "Gathered competitor research covering competitive "
+            "positioning, differentiation, strategies and market gaps."
+        )
 
     emit_progress(
         config,
         "Competitor Agent",
         "completed",
-        "Competitor research completed."
+        completed_message,
     )
 
     return {
@@ -199,58 +443,46 @@ def competitor_node(
 # =========================================================
 # ANALYSIS NODE
 # =========================================================
-# Combines all research into deeper business analysis.
-#
-# The upgraded Analysis Agent performs:
-#
-# Research
-#    ↓
-# Evidence extraction
-#    ↓
-# Cross-source analysis
-#    ↓
-# Market gaps
-#    ↓
-# Opportunities
-#    ↓
-# Risks
-#    ↓
-# Strategic insights
-# =========================================================
+
 
 def analysis_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Analysis Agent:
+    Combines market, company and competitor research and
+    extracts business insights.
+    """
 
     emit_progress(
         config,
         "Analysis Agent",
         "running",
-        "Connecting evidence and generating business insights."
+        "Analyzing market, company and competitor findings "
+        "to identify trends, patterns, opportunities, risks "
+        "and strategic insights...",
     )
 
-    # Get the original user question.
     user_query = state["user_query"]
 
-    # Get all research collected by the parallel research agents.
     market_research = state["market_research"]
     company_research = state["company_research"]
     competitor_research = state["competitor_research"]
 
-    # Generate the evidence-based analysis.
     analysis = analysis_agent(
         user_query=user_query,
         market_research=market_research,
         company_research=company_research,
-        competitor_research=competitor_research
+        competitor_research=competitor_research,
     )
 
     emit_progress(
         config,
         "Analysis Agent",
         "completed",
-        "Research analysis completed."
+        "Identified key business insights, market opportunities, "
+        "risks, trends and strategic patterns from the collected research.",
     )
 
     return {
@@ -261,42 +493,30 @@ def analysis_node(
 # =========================================================
 # WRITER NODE
 # =========================================================
-# Converts the analysis and raw research into a professional
-# business research report.
-#
-# On the first execution:
-#
-# previous_draft = ""
-# review_feedback = ""
-#
-# On revision:
-#
-# previous_draft = previous report
-# review_feedback = reviewer feedback
-#
-# This allows the Writer Agent to improve the same report
-# instead of generating an unrelated report from scratch.
-# =========================================================
+
 
 def writer_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Writer Agent:
+    Converts the research and analysis into a structured
+    business research report.
+    """
 
     emit_progress(
         config,
         "Writer Agent",
         "running",
-        "Preparing the structured business research report."
+        "Writing the final business research report from "
+        "the collected research and analysis...",
     )
 
-    # Original user question.
     user_query = state["user_query"]
 
-    # Analysis generated by the Analysis Agent.
     analysis = state["analysis"]
 
-    # Raw research.
     market_research = state["market_research"]
     company_research = state["company_research"]
     competitor_research = state["competitor_research"]
@@ -304,22 +524,15 @@ def writer_node(
     # Previous reviewer feedback.
     review_feedback = state.get(
         "review_feedback",
-        ""
+        "",
     )
 
-    # Previous report draft.
+    # Previous draft for revision runs.
     previous_draft = state.get(
         "draft_report",
-        ""
+        "",
     )
 
-    # Generate either:
-    #
-    # 1. A first professional report
-    #
-    # OR
-    #
-    # 2. An improved report based on reviewer feedback.
     draft_report = writer_agent(
         user_query=user_query,
         analysis=analysis,
@@ -327,14 +540,25 @@ def writer_node(
         company_research=company_research,
         competitor_research=competitor_research,
         previous_draft=previous_draft,
-        review_feedback=review_feedback
+        review_feedback=review_feedback,
     )
+
+    if previous_draft:
+        writer_message = (
+            "Revised the business research report using the "
+            "reviewer's feedback and the collected evidence."
+        )
+    else:
+        writer_message = (
+            "Draft report written using the collected research, "
+            "evidence and business analysis."
+        )
 
     emit_progress(
         config,
         "Writer Agent",
         "completed",
-        "Business research report generated."
+        writer_message,
     )
 
     return {
@@ -345,136 +569,124 @@ def writer_node(
 # =========================================================
 # REVIEWER NODE
 # =========================================================
-# IMPORTANT:
-#
-# The Reviewer Agent now receives BOTH:
-#
-# - original user question
-# - generated report
-#
-# This is important because the reviewer must determine
-# whether the report actually answers what the user asked.
-#
-# Example:
-#
-# User asks:
-# "Analyze the Indian EV market for a new entrant."
-#
-# A report can be well-written but still fail if it only
-# describes EV companies without discussing:
-#
-# - market opportunity
-# - customer demand
-# - gaps
-# - competition
-# - risks
-#
-# Passing user_query allows the Reviewer Agent to detect
-# these problems.
-# =========================================================
+
 
 def reviewer_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Reviewer Agent:
+    Checks whether the report answers the original business
+    question and validates its quality.
+    """
 
     emit_progress(
         config,
         "Reviewer Agent",
         "running",
-        "Checking report completeness, evidence and business quality."
+        "Reviewing the report for completeness, clarity, "
+        "consistency, relevance and factual support...",
     )
 
-    # Get the original user question.
     user_query = state["user_query"]
 
-    # Get the current report draft.
     draft_report = state["draft_report"]
 
-    # IMPORTANT:
-    # Pass the original user question to the Reviewer Agent.
-    #
-    # New reviewer signature:
-    #
-    # reviewer_agent(
-    #     draft_report,
-    #     user_query
-    # )
-    #
-    # This allows question-specific quality checking.
+    # Reviewer checks the report against the actual user question.
     review_feedback = reviewer_agent(
         draft_report=draft_report,
-        user_query=user_query
+        user_query=user_query,
     )
 
-    # Get current revision count.
     revision_count = state.get(
         "revision_count",
-        0
+        0,
     )
 
-    # Increase revision count after every review.
     revision_count += 1
+
+    review_text = (
+        review_feedback
+        if isinstance(review_feedback, str)
+        else str(review_feedback)
+    )
+
+    review_upper = review_text.strip().upper()
+
+    if "APPROVED" in review_upper and "NEEDS_REVISION" not in review_upper:
+        review_message = (
+            "Review passed. The report meets the required "
+            "completeness, relevance, consistency and "
+            "evidence checks."
+        )
+    elif "NEEDS_REVISION" in review_upper:
+        review_message = (
+            "Review completed. Improvements are required "
+            "before the report can be finalized."
+        )
+    else:
+        review_message = (
+            "Review completed. The report was checked for "
+            "quality, relevance, consistency and evidence."
+        )
 
     emit_progress(
         config,
         "Reviewer Agent",
         "completed",
-        "Report quality review completed."
+        review_message,
     )
 
     return {
         "review_feedback": review_feedback,
-        "revision_count": revision_count
+        "revision_count": revision_count,
     }
 
 
 # =========================================================
 # REVIEW DECISION
 # =========================================================
-# Decides whether:
-#
-# reviewer → writer
-#
-# OR
-#
-# reviewer → final_report
-#
-# Maximum revisions are intentionally limited to 2 so that
-# a weak or ambiguous reviewer response cannot create an
-# infinite Writer ↔ Reviewer loop.
-# =========================================================
+
 
 def review_decision(
-    state: BusinessResearchState
+    state: BusinessResearchState,
 ):
+    """
+    Decide whether the reviewed report should:
 
-    # Get reviewer response.
-    review_feedback = state["review_feedback"].strip().upper()
+        Reviewer → Writer
+        Reviewer → Final Report
 
-    # Get number of completed review cycles.
+    Maximum two revision cycles.
+    """
+
+    review_feedback = (
+        state["review_feedback"]
+        .strip()
+        .upper()
+    )
+
     revision_count = state.get(
         "revision_count",
-        0
+        0,
     )
 
     # -----------------------------------------------------
     # NEEDS REVISION
     # -----------------------------------------------------
-    # Check this FIRST.
+
+    # Check NEEDS_REVISION before APPROVED.
     #
-    # This prevents accidental matching of "APPROVED"
-    # inside a longer reviewer response.
+    # This avoids accidental matching of APPROVED inside
+    # a longer reviewer response.
     # -----------------------------------------------------
 
     if "NEEDS_REVISION" in review_feedback:
 
-        # Allow up to two revision cycles.
         if revision_count < 2:
             return "writer"
 
-        # After the maximum number of revisions,
-        # continue to the final report stage.
         return "final_report"
 
     # -----------------------------------------------------
@@ -487,10 +699,6 @@ def review_decision(
     # -----------------------------------------------------
     # SAFETY FALLBACK
     # -----------------------------------------------------
-    # If the reviewer does not clearly return either status,
-    # request another revision unless the maximum has already
-    # been reached.
-    # -----------------------------------------------------
 
     if revision_count >= 2:
         return "final_report"
@@ -501,40 +709,39 @@ def review_decision(
 # =========================================================
 # FINAL REPORT NODE
 # =========================================================
-# Takes the latest reviewed draft and prepares the final
-# report that will be stored in PostgreSQL and returned
-# to the frontend.
-# =========================================================
+
 
 def final_report_node(
     state: BusinessResearchState,
-    config: RunnableConfig
+    config: RunnableConfig,
 ):
+    """
+    Final Report Agent:
+    Produces the final reviewed report for delivery.
+    """
 
     emit_progress(
         config,
         "Final Report Agent",
         "running",
-        "Preparing the final reviewed business report."
+        "Preparing the final reviewed business research "
+        "report for delivery...",
     )
 
-    # Get latest Writer output.
     draft_report = state["draft_report"]
 
-    # Get latest Reviewer output.
     review_feedback = state["review_feedback"]
 
-    # Final polishing / validation.
     final_report = final_report_agent(
         draft_report,
-        review_feedback
+        review_feedback,
     )
 
     emit_progress(
         config,
         "Final Report Agent",
         "completed",
-        "Final business report is ready."
+        "Final reviewed business research report is ready.",
     )
 
     return {
@@ -546,6 +753,7 @@ def final_report_node(
 # CREATE LANGGRAPH WORKFLOW
 # =========================================================
 
+
 workflow = StateGraph(
     BusinessResearchState
 )
@@ -555,44 +763,45 @@ workflow = StateGraph(
 # ADD NODES
 # =========================================================
 
+
 workflow.add_node(
     "planner",
-    planner_node
+    planner_node,
 )
 
 workflow.add_node(
     "market",
-    market_node
+    market_node,
 )
 
 workflow.add_node(
     "company",
-    company_node
+    company_node,
 )
 
 workflow.add_node(
     "competitor",
-    competitor_node
+    competitor_node,
 )
 
 workflow.add_node(
     "analysis",
-    analysis_node
+    analysis_node,
 )
 
 workflow.add_node(
     "writer",
-    writer_node
+    writer_node,
 )
 
 workflow.add_node(
     "reviewer",
-    reviewer_node
+    reviewer_node,
 )
 
 workflow.add_node(
     "final_report",
-    final_report_node
+    final_report_node,
 )
 
 
@@ -600,62 +809,55 @@ workflow.add_node(
 # START → PLANNER
 # =========================================================
 
+
 workflow.add_edge(
     START,
-    "planner"
+    "planner",
 )
 
 
 # =========================================================
-# PLANNER → PARALLEL RESEARCH
+# SEQUENTIAL BUSINESS RESEARCH FLOW
 # =========================================================
-# These three research branches are independent.
 #
-# Conceptually:
+# Planner
+#    ↓
+# Market
+#    ↓
+# Company
+#    ↓
+# Competitor
+#    ↓
+# Analysis
+#    ↓
+# Writer
+#    ↓
+# Reviewer
+#    ↓
+# Final Report
 #
-#                 ┌→ Market
-# Planner ────────┼→ Company
-#                 └→ Competitor
-#
-# LangGraph waits for the required research branches
-# before continuing to Analysis.
+# Each agent starts only after the previous agent completes.
 # =========================================================
+
 
 workflow.add_edge(
     "planner",
-    "market"
+    "market",
 )
-
-workflow.add_edge(
-    "planner",
-    "company"
-)
-
-workflow.add_edge(
-    "planner",
-    "competitor"
-)
-
-
-# =========================================================
-# RESEARCH AGENTS → ANALYSIS
-# =========================================================
-# Analysis uses all three research outputs.
-# =========================================================
 
 workflow.add_edge(
     "market",
-    "analysis"
+    "company",
 )
 
 workflow.add_edge(
     "company",
-    "analysis"
+    "competitor",
 )
 
 workflow.add_edge(
     "competitor",
-    "analysis"
+    "analysis",
 )
 
 
@@ -663,9 +865,10 @@ workflow.add_edge(
 # ANALYSIS → WRITER
 # =========================================================
 
+
 workflow.add_edge(
     "analysis",
-    "writer"
+    "writer",
 )
 
 
@@ -673,9 +876,10 @@ workflow.add_edge(
 # WRITER → REVIEWER
 # =========================================================
 
+
 workflow.add_edge(
     "writer",
-    "reviewer"
+    "reviewer",
 )
 
 
@@ -694,13 +898,14 @@ workflow.add_edge(
 # Maximum revision count = 2.
 # =========================================================
 
+
 workflow.add_conditional_edges(
     "reviewer",
     review_decision,
     {
         "writer": "writer",
-        "final_report": "final_report"
-    }
+        "final_report": "final_report",
+    },
 )
 
 
@@ -708,9 +913,10 @@ workflow.add_conditional_edges(
 # FINAL REPORT → END
 # =========================================================
 
+
 workflow.add_edge(
     "final_report",
-    END
+    END,
 )
 
 
@@ -718,50 +924,45 @@ workflow.add_edge(
 # COMPILE WORKFLOW
 # =========================================================
 
+
 research_graph = workflow.compile()
 
 
 # =========================================================
 # RUN COMPLETE BUSINESS RESEARCH
 # =========================================================
-# This function is called by the FastAPI backend.
-#
-# It supports the live SSE progress system through the
-# optional progress_callback.
-# =========================================================
+
 
 def run_business_research(
     user_query: str,
-    progress_callback: Callable[[dict[str, Any]], None] | None = None
+    progress_callback: Callable[
+        [dict[str, Any]],
+        None,
+    ] | None = None,
 ) -> dict:
+    """
+    Execute the complete business research workflow.
+
+    The optional progress_callback is used by FastAPI to stream
+    live agent updates to the frontend through SSE.
+    """
 
     # -----------------------------------------------------
     # INITIAL STATE
     # -----------------------------------------------------
-    # Only the original question and revision count are
-    # required at the beginning.
-    #
-    # All other values are created by the graph nodes.
-    # -----------------------------------------------------
 
     initial_state = {
         "user_query": user_query,
-        "revision_count": 0
+        "revision_count": 0,
     }
 
     # -----------------------------------------------------
     # REQUEST-SCOPED CONFIG
     # -----------------------------------------------------
-    # The progress callback is passed through LangGraph's
-    # configurable runtime.
-    #
-    # If no callback is provided, the research workflow
-    # still works normally.
-    # -----------------------------------------------------
 
     config: RunnableConfig = {
         "configurable": {
-            "progress_callback": progress_callback
+            "progress_callback": progress_callback,
         }
     }
 
@@ -771,28 +972,11 @@ def run_business_research(
 
     result = research_graph.invoke(
         initial_state,
-        config=config
+        config=config,
     )
 
     # -----------------------------------------------------
     # RETURN COMPLETE STATE
-    # -----------------------------------------------------
-    #
-    # The result contains:
-    #
-    # user_query
-    # research_plan
-    # market_research
-    # company_research
-    # competitor_research
-    # analysis
-    # draft_report
-    # review_feedback
-    # revision_count
-    # final_report
-    #
-    # The FastAPI layer uses final_report for PostgreSQL
-    # persistence and frontend delivery.
     # -----------------------------------------------------
 
     return result

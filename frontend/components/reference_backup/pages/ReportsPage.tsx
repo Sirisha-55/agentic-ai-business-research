@@ -1,5 +1,4 @@
 import { Bot, FileText } from "lucide-react";
-
 import Button from "../components/Button";
 import EmptyState from "../components/EmptyState";
 import ReportViewer from "../components/ReportViewer";
@@ -23,18 +22,14 @@ export default function ReportsPage({
   onNewResearch: () => void;
   onGoToActivity: () => void;
 }) {
-  if (!finalReport || !finalReport.trim()) {
+  if (!finalReport) {
     return (
       <EmptyState
         icon={FileText}
         title="Report not ready yet"
         description="This business research run hasn't produced an approved final report yet. Check the agent progress in Agent Activity."
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onGoToActivity}
-          >
+          <Button size="sm" variant="outline" onClick={onGoToActivity}>
             <Bot size={14} />
             View Agent Activity
           </Button>

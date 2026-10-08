@@ -81,6 +81,8 @@ export default function AgentOutputView({
   analysis,
   draftFirst,
   reviewFirst,
+  draftRevision: _draftRevision,
+  reviewRevision: _reviewRevision,
 }: {
   selectedAgent: AgentKey | null;
   onSelectAgent: (agent: AgentKey) => void;
@@ -90,21 +92,20 @@ export default function AgentOutputView({
   analysis: Analysis | null;
   draftFirst: string | null;
   reviewFirst: Review | null;
+  draftRevision: string | null;
+  reviewRevision: Review | null;
 }) {
   /*
-   * Research is divided into three agents:
+   * The research stage is now split into three agents:
    * Market, Company and Competitor.
    *
-   * The current backend supplies the combined
-   * research findings and sources to this component.
+   * All three currently use the combined research
+   * findings/sources supplied to this component.
    */
   const hasResearchOutput =
-    findings.length > 0 || sources.length > 0;
+    findings.length > 0 ||
+    sources.length > 0;
 
-  /*
-   * Final Report becomes available only after
-   * the Reviewer approves the Writer output.
-   */
   const finalReportAvailable =
     draftFirst !== null &&
     reviewFirst?.approved === true;
@@ -112,35 +113,47 @@ export default function AgentOutputView({
   const hasOutput: Record<AgentKey, boolean> = {
     system: false,
 
-    planner: plan.length > 0,
+    planner:
+      plan.length > 0,
 
-    market: hasResearchOutput,
+    market:
+      hasResearchOutput,
 
-    company: hasResearchOutput,
+    company:
+      hasResearchOutput,
 
-    competitor: hasResearchOutput,
+    competitor:
+      hasResearchOutput,
 
-    analysis: analysis !== null,
+    analysis:
+      analysis !== null,
 
-    writer: draftFirst !== null,
+    writer:
+      draftFirst !== null,
 
-    reviewer: reviewFirst !== null,
+    reviewer:
+      reviewFirst !== null,
 
-    final_report: finalReportAvailable,
+    final_report:
+      finalReportAvailable,
   };
 
-  const availableStages = STAGES.filter(
-    (stage) => hasOutput[stage.key],
-  );
+  const availableStages =
+    STAGES.filter(
+      (stage) => hasOutput[stage.key],
+    );
 
   const effectiveAgent =
-    selectedAgent && hasOutput[selectedAgent]
+    selectedAgent &&
+    hasOutput[selectedAgent]
       ? selectedAgent
-      : (availableStages[0]?.key ?? null);
+      : (
+          availableStages[0]?.key ??
+          null
+        );
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Agent selector */}
       <section className="rounded-xl border border-border bg-surface p-5 shadow-subtle">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
           Agent output
@@ -148,8 +161,7 @@ export default function AgentOutputView({
 
         {availableStages.length === 0 ? (
           <p className="text-sm text-text-muted">
-            No agent output yet — check back once a workflow step
-            completes.
+            No agent output yet — check back once a workflow step completes.
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -160,7 +172,8 @@ export default function AgentOutputView({
                 hasOutput[stage.key];
 
               const selected =
-                stage.key === effectiveAgent;
+                stage.key ===
+                effectiveAgent;
 
               return (
                 <button
@@ -168,7 +181,9 @@ export default function AgentOutputView({
                   type="button"
                   disabled={!available}
                   onClick={() =>
-                    onSelectAgent(stage.key)
+                    onSelectAgent(
+                      stage.key,
+                    )
                   }
                   className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition duration-150 ${
                     selected
@@ -179,6 +194,7 @@ export default function AgentOutputView({
                   }`}
                 >
                   <Icon size={13} />
+
                   {stage.label}
                 </button>
               );
@@ -189,7 +205,9 @@ export default function AgentOutputView({
 
       {/* Planner */}
       {effectiveAgent === "planner" && (
-        <PlanView plan={plan} />
+        <PlanView
+          plan={plan}
+        />
       )}
 
       {/* Market */}
