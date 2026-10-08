@@ -256,7 +256,7 @@ export default function App() {
 
   const keysMissing =
     health &&
-    ((health.provider === "google" ? !health.gemini_configured : !health.openai_configured) ||
+    ((!health.gemini_configured) ||
       !health.tavily_configured);
 
   return (
@@ -284,7 +284,7 @@ export default function App() {
               <p className="mb-6 flex items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
                 <AlertTriangle size={13} />
                 {health?.provider === "google" && !health.gemini_configured && "GEMINI_API_KEY is not configured. "}
-                {health?.provider !== "google" && !health?.openai_configured && "OPENAI_API_KEY is not configured. "}
+                {health?.gemini_configured === false && "GEMINI_API_KEY is not configured. "}
                 {health && !health.tavily_configured && "TAVILY_API_KEY is not configured. "}
                 Set these in backend/.env before running a research task.
               </p>
@@ -389,3 +389,4 @@ export default function App() {
     </div>
   );
 }
+
