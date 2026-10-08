@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import router
 from app.database import Base, engine
+from app.config import settings
 from app import models
 
 
@@ -13,7 +14,7 @@ from app import models
 app = FastAPI(
     title="Agentic AI Business Research System",
     description="Backend API for AI-powered business research and analysis",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 
@@ -47,7 +48,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
 
         # Production Vercel frontend
-        "https://agentic-ai-business-research.vercel.app"
+        "https://agentic-ai-business-research.vercel.app",
     ],
 
     # Allow Vercel preview/deployment URLs.
@@ -57,7 +58,7 @@ app.add_middleware(
 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 
@@ -87,5 +88,8 @@ def home():
 @app.get("/health")
 def health_check():
     return {
-        "status": "healthy"
+        "status": "healthy",
+        "provider": "google",
+        "gemini_configured": bool(settings.GEMINI_API_KEY),
+        "tavily_configured": bool(settings.TAVILY_API_KEY),
     }
