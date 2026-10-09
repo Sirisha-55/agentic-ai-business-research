@@ -1,14 +1,20 @@
 export type AgentKey =
   | "system"
   | "planner"
-  | "researcher"
-  | "analyst"
+  | "market"
+  | "company"
+  | "competitor"
+  | "analysis"
   | "writer"
-  | "writer_revision"
   | "reviewer"
-  | "reviewer_revision";
+  | "final_report";
 
-export type EventStatus = "pending" | "running" | "completed" | "failed" | "cancelling";
+export type EventStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelling";
 
 export interface PlanTask {
   id: number;
@@ -94,11 +100,10 @@ export interface ReportData {
 
 export interface HealthStatus {
   status: string;
-  openai_configured: boolean;
   tavily_configured: boolean;
   gemini_configured: boolean;
   provider: string;
-  model: string;
+  model?: string;
 }
 
 export interface RunSummary {

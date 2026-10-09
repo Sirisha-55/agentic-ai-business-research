@@ -1,12 +1,22 @@
 import {
   BrainCircuit,
+  Building2,
+  FileCheck2,
   ListTodo,
   PenLine,
   Search,
   ShieldCheck,
+  Swords,
   type LucideIcon,
 } from "lucide-react";
-import type { AgentKey, Analysis, PlanTask, ResearchFinding, Review, Source } from "../types";
+import type {
+  AgentKey,
+  Analysis,
+  PlanTask,
+  ResearchFinding,
+  Review,
+  Source,
+} from "../types";
 import AnalysisView from "./AnalysisView";
 import DraftView from "./DraftView";
 import PlanView from "./PlanView";
@@ -15,12 +25,13 @@ import ReviewView from "./ReviewView";
 
 const STAGES: { key: AgentKey; label: string; icon: LucideIcon }[] = [
   { key: "planner", label: "Planner", icon: ListTodo },
-  { key: "researcher", label: "Researcher", icon: Search },
-  { key: "analyst", label: "Analyzer", icon: BrainCircuit },
+  { key: "market", label: "Market", icon: Search },
+  { key: "company", label: "Company", icon: Building2 },
+  { key: "competitor", label: "Competitor", icon: Swords },
+  { key: "analysis", label: "Analysis", icon: BrainCircuit },
   { key: "writer", label: "Writer", icon: PenLine },
   { key: "reviewer", label: "Reviewer", icon: ShieldCheck },
-  { key: "writer_revision", label: "Writer (Revision)", icon: PenLine },
-  { key: "reviewer_revision", label: "Reviewer (Revision)", icon: ShieldCheck },
+  { key: "final_report", label: "Final Report", icon: FileCheck2 },
 ];
 
 export default function AgentOutputView({
@@ -32,8 +43,6 @@ export default function AgentOutputView({
   analysis,
   draftFirst,
   reviewFirst,
-  draftRevision,
-  reviewRevision,
 }: {
   selectedAgent: AgentKey | null;
   onSelectAgent: (agent: AgentKey) => void;
@@ -43,23 +52,24 @@ export default function AgentOutputView({
   analysis: Analysis | null;
   draftFirst: string | null;
   reviewFirst: Review | null;
-  draftRevision: string | null;
-  reviewRevision: Review | null;
 }) {
   const hasOutput: Record<AgentKey, boolean> = {
     system: false,
     planner: plan.length > 0,
-    researcher: findings.length > 0,
-    analyst: analysis !== null,
+    market: findings.length > 0,
+    company: findings.length > 0,
+    competitor: findings.length > 0,
+    analysis: analysis !== null,
     writer: draftFirst !== null,
     reviewer: reviewFirst !== null,
-    writer_revision: draftRevision !== null,
-    reviewer_revision: reviewRevision !== null,
+    final_report: draftFirst !== null && reviewFirst?.approved === true,
   };
 
-  const availableStages = STAGES.filter((s) => hasOutput[s.key]);
+  const availableStages = STAGES.filter((stage) => hasOutput[stage.key]);
   const effectiveAgent =
-    selectedAgent && hasOutput[selectedAgent] ? selectedAgent : (availableStages[0]?.key ?? null);
+    selectedAgent && hasOutput[selectedAgent]
+      ? selectedAgent
+      : (availableStages[0]?.key ?? null);
 
   return (
     <div className="flex flex-col gap-5">
@@ -67,9 +77,11 @@ export default function AgentOutputView({
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
           Agent output
         </p>
+
         {availableStages.length === 0 ? (
           <p className="text-sm text-text-muted">
-            No agent has produced output yet — check back once a step completes.
+            No agent has produced output yet — check back once a workflow step
+            completes.
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -77,6 +89,7 @@ export default function AgentOutputView({
               const Icon = stage.icon;
               const available = hasOutput[stage.key];
               const selected = stage.key === effectiveAgent;
+
               return (
                 <button
                   key={stage.key}
@@ -101,15 +114,25 @@ export default function AgentOutputView({
       </section>
 
       {effectiveAgent === "planner" && <PlanView plan={plan} />}
-      {effectiveAgent === "researcher" && <ResearchView findings={findings} sources={sources} />}
-      {effectiveAgent === "analyst" && <AnalysisView analysis={analysis} />}
-      {effectiveAgent === "writer" && <DraftView draft={draftFirst} title="Writer draft" />}
-      {effectiveAgent === "reviewer" && <ReviewView review={reviewFirst} title="Reviewer result" />}
-      {effectiveAgent === "writer_revision" && (
-        <DraftView draft={draftRevision} title="Writer draft (revision)" />
+
+      {(effectiveAgent === "market" ||
+        effectiveAgent === "company" ||
+        effectiveAgent === "competitor") && (
+        <ResearchView findings={findings} sources={sources} />
       )}
-      {effectiveAgent === "reviewer_revision" && (
-        <ReviewView review={reviewRevision} title="Reviewer result (revision)" />
+
+      {effectiveAgent === "analysis" && <AnalysisView analysis={analysis} />}
+
+      {effectiveAgent === "writer" && (
+        <DraftView draft={draftFirst} title="Business Research Report Draft" />
+      )}
+
+      {effectiveAgent === "reviewer" && (
+        <ReviewView review={reviewFirst} title="Business Research Review" />
+      )}
+
+      {effectiveAgent === "final_report" && (
+        <DraftView draft={draftFirst} title="Final Business Research Report" />
       )}
     </div>
   );
