@@ -244,27 +244,70 @@ def research_count(
 
     return None
 
+def task_input(task: Any) -> str:
+    """Convert a planner task (including nested dictionaries) into agent input text."""
+    data = normalize_task(task)
+
+    def extract(value: Any) -> str:
+        value = normalize_task(value)
+        if isinstance(value, dict):
+            for key in ("query", "objective", "description", "task", "title", "name", "content", "text"):
+                candidate = value.get(key)
+                if candidate is not None and candidate != "":
+                    text_value = extract(candidate)
+                    if text_value:
+                        return text_value
+            return ""
+        if isinstance(value, (list, tuple)):
+            return " ".join(part for part in (extract(item) for item in value) if part)
+        return str(value).strip() if value is not None else ""
+
+    result = extract(data)
+    if result:
+        return result
+    # Last-resort fallback keeps the agent input a string without calling .strip() on a dict.
+    return str(task).strip() if not isinstance(task, dict) else str(task)
+
 def research_event_payload(result: Any) -> dict[str, Any]:
+
     """Normalize research output into the fields consumed by the Researcher tab."""
+
     normalized = normalize_task(result)
+
     if isinstance(normalized, dict):
+
         findings = normalized.get("findings")
+
         sources = normalized.get("sources")
+
         if findings is None:
+
             findings = normalized.get("results") or normalized.get("research") or normalized.get("content")
+
         if sources is None:
+
             sources = normalized.get("references") or normalized.get("citations") or []
+
     else:
+
         findings = normalized
+
         sources = []
 
     if findings is None:
+
         findings = []
+
     elif not isinstance(findings, (list, tuple)):
+
         findings = [findings]
+
     if sources is None:
+
         sources = []
+
     elif not isinstance(sources, (list, tuple)):
+
         sources = [sources]
 
     return {"findings": list(findings), "sources": list(sources), "result": normalized}
@@ -421,7 +464,7 @@ def market_node(
 
     )
 
-    results = market_agent(task)
+    results = market_agent(task_input(task))
 
     emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
 
@@ -434,6 +477,7 @@ def market_node(
         "completed",
 
         f"Completed market research for: {focus}",
+
         data=research_event_payload(results),
 
     )
@@ -486,7 +530,7 @@ def company_node(
 
     )
 
-    results = company_agent(task)
+    results = company_agent(task_input(task))
 
     emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
 
@@ -499,6 +543,7 @@ def company_node(
         "completed",
 
         f"Completed company research for: {focus}",
+
         data=research_event_payload(results),
 
     )
@@ -551,7 +596,7 @@ def competitor_node(
 
     )
 
-    results = competitor_agent(task)
+    results = competitor_agent(task_input(task))
 
     emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
 
@@ -564,6 +609,7 @@ def competitor_node(
         "completed",
 
         f"Completed competitor research for: {focus}",
+
         data=research_event_payload(results),
 
     )
@@ -639,6 +685,7 @@ def analysis_node(
         "Identified key business insights, market opportunities, "
 
         "risks, trends and strategic patterns from the collected research.",
+
         data={"analysis": analysis},
 
     )
@@ -764,6 +811,7 @@ def writer_node(
         "completed",
 
         writer_message,
+
         data={"draft": draft_report, "revision": bool(previous_draft)},
 
     )
@@ -836,15 +884,25 @@ def reviewer_node(
 
     revision_count += 1
 
-    review_text = (
+    if isinstance(review_feedback, dict):
 
-        review_feedback
+        review_text = str(
 
-        if isinstance(review_feedback, str)
+            review_feedback.get("feedback")
 
-        else str(review_feedback)
+            or review_feedback.get("review")
 
-    )
+            or review_feedback.get("content")
+
+            or review_feedback.get("message")
+
+            or review_feedback
+
+        )
+
+    else:
+
+        review_text = str(review_feedback or "")
 
     review_upper = review_text.strip().upper()
 
@@ -889,6 +947,7 @@ def reviewer_node(
         "completed",
 
         review_message,
+
         data={"review": {"approved": "APPROVED" in review_upper and "NEEDS_REVISION" not in review_upper, "feedback": review_text, "revision_count": revision_count}},
 
     )
@@ -925,15 +984,16 @@ def review_decision(
 
     """
 
-    review_feedback = (
-
-        state["review_feedback"]
-
-        .strip()
-
-        .upper()
-
-    )
+    raw_feedback = state.get("review_feedback", "")
+    if isinstance(raw_feedback, dict):
+        raw_feedback = (
+            raw_feedback.get("feedback")
+            or raw_feedback.get("review")
+            or raw_feedback.get("content")
+            or raw_feedback.get("message")
+            or str(raw_feedback)
+        )
+    review_feedback = str(raw_feedback or "").strip().upper()
 
     revision_count = state.get(
 
@@ -1046,6 +1106,7 @@ def final_report_node(
         "completed",
 
         "Final reviewed business research report is ready.",
+
         data={"final_report": final_report},
 
     )
