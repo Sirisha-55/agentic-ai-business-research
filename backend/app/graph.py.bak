@@ -1,10 +1,13 @@
 from typing import Any, Callable
 
+
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import StateGraph, START, END
 
+
 from app.state import BusinessResearchState
+
 
 from app.agents.planner import planner_agent
 
@@ -21,6 +24,7 @@ from app.agents.writer import writer_agent
 from app.agents.reviewer import reviewer_agent
 
 from app.agents.final_report import final_report_agent
+
 
 # =========================================================
 
@@ -68,6 +72,7 @@ from app.agents.final_report import final_report_agent
 
 # =========================================================
 
+
 def emit_progress(
 
     config: RunnableConfig,
@@ -78,29 +83,43 @@ def emit_progress(
 
     message: str,
 
-    **extra: Any,
-
 ):
 
-    """Send a progress event, including optional task-level metadata, to SSE."""
+    """
+
+    Send a progress event to the request-scoped SSE callback.
+
+    """
+
 
     configurable = config.get("configurable", {})
 
     callback = configurable.get("progress_callback")
 
+
     if callback is not None:
 
-        callback({
+        callback(
 
-            "agent": agent,
+            {
 
-            "status": status,
+                "agent": agent,
 
-            "message": message,
+                "status": status,
 
-            **extra,
+                "message": message,
 
-        })
+            }
+
+        )
+
+
+# =========================================================
+
+# HELPER FUNCTIONS
+
+# =========================================================
+
 
 def normalize_task(task: Any) -> Any:
 
@@ -109,6 +128,7 @@ def normalize_task(task: Any) -> Any:
     Convert common task objects into dictionaries when possible.
 
     """
+
 
     if hasattr(task, "model_dump"):
 
@@ -120,7 +140,9 @@ def normalize_task(task: Any) -> Any:
 
             pass
 
+
     return task
+
 
 def readable_task(task: Any) -> str:
 
@@ -132,7 +154,9 @@ def readable_task(task: Any) -> str:
 
     """
 
+
     task = normalize_task(task)
+
 
     if isinstance(task, dict):
 
@@ -146,6 +170,7 @@ def readable_task(task: Any) -> str:
 
         ).strip()
 
+
         description = str(
 
             task.get("description")
@@ -158,55 +183,45 @@ def readable_task(task: Any) -> str:
 
         ).strip()
 
+
         if title and description:
 
             return f"{title}: {description}"
+
 
         if title:
 
             return title
 
+
         if description:
 
             return description
 
+
     return str(task).strip()
 
+
 def task_focus(task: Any, max_length: int = 180) -> str:
-
     """Return the Planner-generated task title, falling back to its description."""
-
     task_data = normalize_task(task)
-
     if isinstance(task_data, dict):
-
         value = (
-
             task_data.get("title")
-
             or task_data.get("name")
-
             or task_data.get("description")
-
             or task_data.get("query")
-
             or task_data.get("objective")
-
             or ""
-
         )
-
     else:
-
         value = task_data
 
     text = " ".join(str(value).split()).strip()
-
     if len(text) > max_length:
-
         text = text[: max_length - 3].rstrip() + "..."
-
     return text or "the planned research task"
+
 
 def research_count(
 
@@ -222,58 +237,41 @@ def research_count(
 
     field such as findings or sources.
 
+
     Returns None when the result structure does not expose such
 
     a field.
 
     """
 
+
     result = normalize_task(result)
+
 
     if not isinstance(result, dict):
 
         return None
 
+
     for key in keys:
 
         value = result.get(key)
+
 
         if isinstance(value, (list, tuple, set)):
 
             return len(value)
 
+
     return None
 
-def research_event_payload(result: Any) -> dict[str, Any]:
-    """Normalize research output into the fields consumed by the Researcher tab."""
-    normalized = normalize_task(result)
-    if isinstance(normalized, dict):
-        findings = normalized.get("findings")
-        sources = normalized.get("sources")
-        if findings is None:
-            findings = normalized.get("results") or normalized.get("research") or normalized.get("content")
-        if sources is None:
-            sources = normalized.get("references") or normalized.get("citations") or []
-    else:
-        findings = normalized
-        sources = []
-
-    if findings is None:
-        findings = []
-    elif not isinstance(findings, (list, tuple)):
-        findings = [findings]
-    if sources is None:
-        sources = []
-    elif not isinstance(sources, (list, tuple)):
-        sources = [sources]
-
-    return {"findings": list(findings), "sources": list(sources), "result": normalized}
 
 # =========================================================
 
 # PLANNER NODE
 
 # =========================================================
+
 
 def planner_node(
 
@@ -293,6 +291,7 @@ def planner_node(
 
     """
 
+
     emit_progress(
 
         config,
@@ -305,55 +304,17 @@ def planner_node(
 
     )
 
+
     user_query = state["user_query"]
 
-    # Create the research plan and attach stable IDs for the Execution Plan UI.
 
-    raw_research_plan = planner_agent(user_query)
+    # Create the research plan.
 
-    research_plan = []
+    research_plan = planner_agent(user_query)
 
-    for task_index, raw_task in enumerate(raw_research_plan, start=1):
-
-        task = normalize_task(raw_task)
-
-        if isinstance(task, dict):
-
-            task = dict(task)
-
-            task_id = str(task.get("id") or task.get("task_id") or f"task_{task_index}")
-
-            task["id"] = task_id
-
-            task["task_id"] = task_id
-
-            task.setdefault("title", task.get("name") or task.get("description") or task.get("query") or f"Research task {task_index}")
-
-            task.setdefault("task_status", "waiting")
-
-        else:
-
-            task_id = f"task_{task_index}"
-
-            task = {
-
-                "id": task_id,
-
-                "task_id": task_id,
-
-                "title": task_focus(task),
-
-                "description": readable_task(task),
-
-                "task_status": "waiting",
-
-                "task": task,
-
-            }
-
-        research_plan.append(task)
 
     task_count = len(research_plan)
+
 
     emit_progress(
 
@@ -367,9 +328,8 @@ def planner_node(
 
         f"subtask{'s' if task_count != 1 else ''}.",
 
-        data={"tasks": research_plan},
-
     )
+
 
     return {
 
@@ -377,202 +337,128 @@ def planner_node(
 
     }
 
+
 # =========================================================
 
 # MARKET RESEARCH NODE
 
 # =========================================================
 
+
 def market_node(
-
     state: BusinessResearchState,
-
     config: RunnableConfig,
-
 ):
-
     """Research the first task produced by the Planner Agent."""
-
     plan = state.get("research_plan") or []
-
     if not plan:
-
         raise ValueError("Planner did not produce a market research task.")
 
     task = plan[0]
-
-    task_data = normalize_task(task)
-
-    task_id = str(task_data.get("task_id") or task_data.get("id") or "task_1") if isinstance(task_data, dict) else "task_1"
-
     focus = task_focus(task)
 
-    emit_progress(config, "Planner Agent", "running", f"Starting planned task: {focus}", data={"task_id": task_id, "task_status": "running", "title": focus})
-
     emit_progress(
-
         config,
-
         "Market Agent",
-
         "running",
-
         f"Investigating the planned market task: {focus}...",
-
     )
 
     results = market_agent(task)
 
-    emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
-
     emit_progress(
-
         config,
-
         "Market Agent",
-
         "completed",
-
         f"Completed market research for: {focus}",
-        data=research_event_payload(results),
-
     )
 
     return {"market_research": results}
+
+
 
 # COMPANY RESEARCH NODE
 
 # =========================================================
 
+
 def company_node(
-
     state: BusinessResearchState,
-
     config: RunnableConfig,
-
 ):
-
     """Research the second task produced by the Planner Agent."""
-
     plan = state.get("research_plan") or []
-
     if len(plan) < 2:
-
         raise ValueError(
-
             "Planner must produce at least two tasks for company research."
-
         )
 
     task = plan[1]
-
-    task_data = normalize_task(task)
-
-    task_id = str(task_data.get("task_id") or task_data.get("id") or "task_2") if isinstance(task_data, dict) else "task_2"
-
     focus = task_focus(task)
 
-    emit_progress(config, "Planner Agent", "running", f"Starting planned task: {focus}", data={"task_id": task_id, "task_status": "running", "title": focus})
-
     emit_progress(
-
         config,
-
         "Company Agent",
-
         "running",
-
         f"Investigating company information for the planned task: {focus}...",
-
     )
 
     results = company_agent(task)
 
-    emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
-
     emit_progress(
-
         config,
-
         "Company Agent",
-
         "completed",
-
         f"Completed company research for: {focus}",
-        data=research_event_payload(results),
-
     )
 
     return {"company_research": results}
+
+
 
 # COMPETITOR RESEARCH NODE
 
 # =========================================================
 
+
 def competitor_node(
-
     state: BusinessResearchState,
-
     config: RunnableConfig,
-
 ):
-
     """Research the third task produced by the Planner Agent."""
-
     plan = state.get("research_plan") or []
-
     if len(plan) < 3:
-
         raise ValueError(
-
             "Planner must produce at least three tasks for competitor research."
-
         )
 
     task = plan[2]
-
-    task_data = normalize_task(task)
-
-    task_id = str(task_data.get("task_id") or task_data.get("id") or "task_3") if isinstance(task_data, dict) else "task_3"
-
     focus = task_focus(task)
 
-    emit_progress(config, "Planner Agent", "running", f"Starting planned task: {focus}", data={"task_id": task_id, "task_status": "running", "title": focus})
-
     emit_progress(
-
         config,
-
         "Competitor Agent",
-
         "running",
-
         f"Investigating competitors for the planned task: {focus}...",
-
     )
 
     results = competitor_agent(task)
 
-    emit_progress(config, "Planner Agent", "completed", f"Completed planned task: {focus}", data={"task_id": task_id, "task_status": "completed", "title": focus})
-
     emit_progress(
-
         config,
-
         "Competitor Agent",
-
         "completed",
-
         f"Completed competitor research for: {focus}",
-        data=research_event_payload(results),
-
     )
 
     return {"competitor_research": results}
 
+
+
 # ANALYSIS NODE
 
 # =========================================================
+
 
 def analysis_node(
 
@@ -592,6 +478,7 @@ def analysis_node(
 
     """
 
+
     emit_progress(
 
         config,
@@ -608,13 +495,16 @@ def analysis_node(
 
     )
 
+
     user_query = state["user_query"]
+
 
     market_research = state["market_research"]
 
     company_research = state["company_research"]
 
     competitor_research = state["competitor_research"]
+
 
     analysis = analysis_agent(
 
@@ -628,6 +518,7 @@ def analysis_node(
 
     )
 
+
     emit_progress(
 
         config,
@@ -639,9 +530,9 @@ def analysis_node(
         "Identified key business insights, market opportunities, "
 
         "risks, trends and strategic patterns from the collected research.",
-        data={"analysis": analysis},
 
     )
+
 
     return {
 
@@ -649,11 +540,13 @@ def analysis_node(
 
     }
 
+
 # =========================================================
 
 # WRITER NODE
 
 # =========================================================
+
 
 def writer_node(
 
@@ -673,6 +566,7 @@ def writer_node(
 
     """
 
+
     emit_progress(
 
         config,
@@ -687,15 +581,19 @@ def writer_node(
 
     )
 
+
     user_query = state["user_query"]
 
+
     analysis = state["analysis"]
+
 
     market_research = state["market_research"]
 
     company_research = state["company_research"]
 
     competitor_research = state["competitor_research"]
+
 
     # Previous reviewer feedback.
 
@@ -707,6 +605,7 @@ def writer_node(
 
     )
 
+
     # Previous draft for revision runs.
 
     previous_draft = state.get(
@@ -716,6 +615,7 @@ def writer_node(
         "",
 
     )
+
 
     draft_report = writer_agent(
 
@@ -734,6 +634,7 @@ def writer_node(
         review_feedback=review_feedback,
 
     )
+
 
     if previous_draft:
 
@@ -755,6 +656,7 @@ def writer_node(
 
         )
 
+
     emit_progress(
 
         config,
@@ -764,9 +666,9 @@ def writer_node(
         "completed",
 
         writer_message,
-        data={"draft": draft_report, "revision": bool(previous_draft)},
 
     )
+
 
     return {
 
@@ -774,11 +676,13 @@ def writer_node(
 
     }
 
+
 # =========================================================
 
 # REVIEWER NODE
 
 # =========================================================
+
 
 def reviewer_node(
 
@@ -798,6 +702,7 @@ def reviewer_node(
 
     """
 
+
     emit_progress(
 
         config,
@@ -812,9 +717,12 @@ def reviewer_node(
 
     )
 
+
     user_query = state["user_query"]
 
+
     draft_report = state["draft_report"]
+
 
     # Reviewer checks the report against the actual user question.
 
@@ -826,6 +734,7 @@ def reviewer_node(
 
     )
 
+
     revision_count = state.get(
 
         "revision_count",
@@ -834,7 +743,9 @@ def reviewer_node(
 
     )
 
+
     revision_count += 1
+
 
     review_text = (
 
@@ -846,7 +757,9 @@ def reviewer_node(
 
     )
 
+
     review_upper = review_text.strip().upper()
+
 
     if "APPROVED" in review_upper and "NEEDS_REVISION" not in review_upper:
 
@@ -880,6 +793,7 @@ def reviewer_node(
 
         )
 
+
     emit_progress(
 
         config,
@@ -889,9 +803,9 @@ def reviewer_node(
         "completed",
 
         review_message,
-        data={"review": {"approved": "APPROVED" in review_upper and "NEEDS_REVISION" not in review_upper, "feedback": review_text, "revision_count": revision_count}},
 
     )
+
 
     return {
 
@@ -901,11 +815,13 @@ def reviewer_node(
 
     }
 
+
 # =========================================================
 
 # REVIEW DECISION
 
 # =========================================================
+
 
 def review_decision(
 
@@ -917,13 +833,16 @@ def review_decision(
 
     Decide whether the reviewed report should:
 
+
         Reviewer → Writer
 
         Reviewer → Final Report
 
+
     Maximum two revision cycles.
 
     """
+
 
     review_feedback = (
 
@@ -935,6 +854,7 @@ def review_decision(
 
     )
 
+
     revision_count = state.get(
 
         "revision_count",
@@ -943,11 +863,13 @@ def review_decision(
 
     )
 
+
     # -----------------------------------------------------
 
     # NEEDS REVISION
 
     # -----------------------------------------------------
+
 
     # Check NEEDS_REVISION before APPROVED.
 
@@ -959,13 +881,17 @@ def review_decision(
 
     # -----------------------------------------------------
 
+
     if "NEEDS_REVISION" in review_feedback:
+
 
         if revision_count < 2:
 
             return "writer"
 
+
         return "final_report"
+
 
     # -----------------------------------------------------
 
@@ -973,9 +899,11 @@ def review_decision(
 
     # -----------------------------------------------------
 
+
     if "APPROVED" in review_feedback:
 
         return "final_report"
+
 
     # -----------------------------------------------------
 
@@ -983,17 +911,21 @@ def review_decision(
 
     # -----------------------------------------------------
 
+
     if revision_count >= 2:
 
         return "final_report"
 
+
     return "writer"
+
 
 # =========================================================
 
 # FINAL REPORT NODE
 
 # =========================================================
+
 
 def final_report_node(
 
@@ -1011,6 +943,7 @@ def final_report_node(
 
     """
 
+
     emit_progress(
 
         config,
@@ -1025,9 +958,12 @@ def final_report_node(
 
     )
 
+
     draft_report = state["draft_report"]
 
+
     review_feedback = state["review_feedback"]
+
 
     final_report = final_report_agent(
 
@@ -1036,6 +972,7 @@ def final_report_node(
         review_feedback,
 
     )
+
 
     emit_progress(
 
@@ -1046,9 +983,9 @@ def final_report_node(
         "completed",
 
         "Final reviewed business research report is ready.",
-        data={"final_report": final_report},
 
     )
+
 
     return {
 
@@ -1056,11 +993,13 @@ def final_report_node(
 
     }
 
+
 # =========================================================
 
 # CREATE LANGGRAPH WORKFLOW
 
 # =========================================================
+
 
 workflow = StateGraph(
 
@@ -1068,11 +1007,13 @@ workflow = StateGraph(
 
 )
 
+
 # =========================================================
 
 # ADD NODES
 
 # =========================================================
+
 
 workflow.add_node(
 
@@ -1082,6 +1023,7 @@ workflow.add_node(
 
 )
 
+
 workflow.add_node(
 
     "market",
@@ -1089,6 +1031,7 @@ workflow.add_node(
     market_node,
 
 )
+
 
 workflow.add_node(
 
@@ -1098,6 +1041,7 @@ workflow.add_node(
 
 )
 
+
 workflow.add_node(
 
     "competitor",
@@ -1105,6 +1049,7 @@ workflow.add_node(
     competitor_node,
 
 )
+
 
 workflow.add_node(
 
@@ -1114,6 +1059,7 @@ workflow.add_node(
 
 )
 
+
 workflow.add_node(
 
     "writer",
@@ -1121,6 +1067,7 @@ workflow.add_node(
     writer_node,
 
 )
+
 
 workflow.add_node(
 
@@ -1130,6 +1077,7 @@ workflow.add_node(
 
 )
 
+
 workflow.add_node(
 
     "final_report",
@@ -1138,11 +1086,13 @@ workflow.add_node(
 
 )
 
+
 # =========================================================
 
 # START → PLANNER
 
 # =========================================================
+
 
 workflow.add_edge(
 
@@ -1151,6 +1101,7 @@ workflow.add_edge(
     "planner",
 
 )
+
 
 # =========================================================
 
@@ -1196,6 +1147,7 @@ workflow.add_edge(
 
 # =========================================================
 
+
 workflow.add_edge(
 
     "planner",
@@ -1204,6 +1156,7 @@ workflow.add_edge(
 
 )
 
+
 workflow.add_edge(
 
     "market",
@@ -1212,6 +1165,7 @@ workflow.add_edge(
 
 )
 
+
 workflow.add_edge(
 
     "company",
@@ -1220,6 +1174,7 @@ workflow.add_edge(
 
 )
 
+
 workflow.add_edge(
 
     "competitor",
@@ -1228,11 +1183,13 @@ workflow.add_edge(
 
 )
 
+
 # =========================================================
 
 # ANALYSIS → WRITER
 
 # =========================================================
+
 
 workflow.add_edge(
 
@@ -1242,11 +1199,13 @@ workflow.add_edge(
 
 )
 
+
 # =========================================================
 
 # WRITER → REVIEWER
 
 # =========================================================
+
 
 workflow.add_edge(
 
@@ -1255,6 +1214,7 @@ workflow.add_edge(
     "reviewer",
 
 )
+
 
 # =========================================================
 
@@ -1284,6 +1244,7 @@ workflow.add_edge(
 
 # =========================================================
 
+
 workflow.add_conditional_edges(
 
     "reviewer",
@@ -1300,11 +1261,13 @@ workflow.add_conditional_edges(
 
 )
 
+
 # =========================================================
 
 # FINAL REPORT → END
 
 # =========================================================
+
 
 workflow.add_edge(
 
@@ -1314,19 +1277,23 @@ workflow.add_edge(
 
 )
 
+
 # =========================================================
 
 # COMPILE WORKFLOW
 
 # =========================================================
 
+
 research_graph = workflow.compile()
+
 
 # =========================================================
 
 # RUN COMPLETE BUSINESS RESEARCH
 
 # =========================================================
+
 
 def run_business_research(
 
@@ -1346,17 +1313,20 @@ def run_business_research(
 
     Execute the complete business research workflow.
 
+
     The optional progress_callback is used by FastAPI to stream
 
     live agent updates to the frontend through SSE.
 
     """
 
+
     # -----------------------------------------------------
 
     # INITIAL STATE
 
     # -----------------------------------------------------
+
 
     initial_state = {
 
@@ -1366,11 +1336,13 @@ def run_business_research(
 
     }
 
+
     # -----------------------------------------------------
 
     # REQUEST-SCOPED CONFIG
 
     # -----------------------------------------------------
+
 
     config: RunnableConfig = {
 
@@ -1382,11 +1354,13 @@ def run_business_research(
 
     }
 
+
     # -----------------------------------------------------
 
     # EXECUTE COMPLETE WORKFLOW
 
     # -----------------------------------------------------
+
 
     result = research_graph.invoke(
 
@@ -1396,10 +1370,12 @@ def run_business_research(
 
     )
 
+
     # -----------------------------------------------------
 
     # RETURN COMPLETE STATE
 
     # -----------------------------------------------------
+
 
     return result

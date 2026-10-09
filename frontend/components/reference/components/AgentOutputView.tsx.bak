@@ -1,0 +1,174 @@
+import {
+  ListTodo,
+  Search,
+  BrainCircuit,
+  PenLine,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+
+import type {
+  AgentKey,
+  Analysis,
+  PlanTask,
+  ResearchFinding,
+  Review,
+  Source,
+} from "../types";
+
+import AnalysisView from "./AnalysisView";
+import DraftView from "./DraftView";
+import PlanView from "./PlanView";
+import ResearchView from "./ResearchView";
+import ReviewView from "./ReviewView";
+
+const STAGES: {
+  key: AgentKey;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { key: "planner", label: "Planner", icon: ListTodo },
+  { key: "market", label: "Researcher", icon: Search },
+  { key: "analysis", label: "Analyzer", icon: BrainCircuit },
+  { key: "writer", label: "Writer", icon: PenLine },
+  { key: "reviewer", label: "Reviewer", icon: ShieldCheck },
+];
+
+type AgentOutputViewProps = {
+  selectedAgent: AgentKey | null;
+  onSelectAgent: (agent: AgentKey) => void;
+  plan: PlanTask[];
+  findings: ResearchFinding[];
+  sources: Source[];
+  analysis: Analysis | null;
+  draftFirst: string | null;
+  reviewFirst: Review | null;
+  draftRevision?: string | null;
+  reviewRevision?: Review | null;
+};
+
+export default function AgentOutputView({
+  selectedAgent,
+  onSelectAgent,
+  plan,
+  findings,
+  sources,
+  analysis,
+  draftFirst,
+  reviewFirst,
+  draftRevision,
+  reviewRevision,
+}: AgentOutputViewProps) {
+  const hasOutput: Partial<Record<AgentKey, boolean>> = {
+    planner: plan.length > 0,
+    market: findings.length > 0,
+    analysis: analysis !== null,
+    writer: draftFirst !== null || Boolean(draftRevision),
+    reviewer: reviewFirst !== null || reviewRevision !== null,
+  };
+
+  const effectiveAgent =
+    selectedAgent && STAGES.some((stage) => stage.key === selectedAgent)
+      ? selectedAgent
+      : STAGES.find((stage) => hasOutput[stage.key])?.key ?? "planner";
+
+  const hasSelectedOutput = hasOutput[effectiveAgent] === true;
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Agent Output: existing five tabs */}
+      <section className="rounded-xl border border-border bg-surface p-5 shadow-subtle">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+          Agent output
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {STAGES.map((stage) => {
+            const Icon = stage.icon;
+            const available = hasOutput[stage.key] === true;
+            const selected = stage.key === effectiveAgent;
+
+            return (
+              <button
+                key={stage.key}
+                type="button"
+                onClick={() => onSelectAgent(stage.key)}
+                aria-pressed={selected}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition duration-150 ${
+                  selected
+                    ? "border-accent bg-accent text-white"
+                    : available
+                      ? "border-border bg-surface text-text-secondary hover:border-accent/40 hover:text-accent"
+                      : "border-border/60 bg-surface-2/50 text-text-muted hover:border-accent/40"
+                }`}
+              >
+                <Icon size={13} />
+                {stage.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Selected agent output */}
+      <section className="rounded-xl border border-border bg-surface p-5 shadow-subtle">
+        {!hasSelectedOutput ? (
+          <p className="text-sm text-text-muted">
+            This agent has not produced output yet. Its output will appear
+            here when the agent completes its task.
+          </p>
+        ) : (
+          <>
+            {effectiveAgent === "planner" && <PlanView plan={plan} />}
+
+            {effectiveAgent === "market" && (
+              <ResearchView findings={findings} sources={sources} />
+            )}
+
+            {effectiveAgent === "analysis" && (
+              <AnalysisView analysis={analysis} />
+            )}
+
+            {/* First draft and revision stay inside the Writer tab */}
+            {effectiveAgent === "writer" && (
+              <div className="flex flex-col gap-5">
+                {draftFirst && (
+                  <DraftView
+                    draft={draftFirst}
+                    title="Business Research Report Draft"
+                  />
+                )}
+
+                {draftRevision && draftRevision !== draftFirst && (
+                  <DraftView
+                    draft={draftRevision}
+                    title="Revised Business Research Report"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Initial review and revised review stay inside Reviewer tab */}
+            {effectiveAgent === "reviewer" && (
+              <div className="flex flex-col gap-5">
+                {reviewFirst && (
+                  <ReviewView
+                    review={reviewFirst}
+                    title="Business Research Review"
+                  />
+                )}
+
+                {reviewRevision && reviewRevision !== reviewFirst && (
+                  <ReviewView
+                    review={reviewRevision}
+                    title="Revised Business Research Review"
+                  />
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
