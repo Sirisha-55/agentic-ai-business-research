@@ -420,7 +420,7 @@ export default function ReportViewer({
 
               prose
 
-              prose-base
+              prose-sm sm:prose-base
 
               dark:prose-invert
 
@@ -437,6 +437,7 @@ export default function ReportViewer({
               prose-h1:mt-0
 
               prose-h1:text-2xl
+
               sm:prose-h1:text-3xl
 
               prose-h2:mb-3
@@ -444,6 +445,7 @@ export default function ReportViewer({
               prose-h2:mt-8
 
               prose-h2:text-xl
+
               sm:prose-h2:text-2xl
 
               prose-h3:mb-2
@@ -453,21 +455,31 @@ export default function ReportViewer({
               prose-h3:text-base
 
               prose-p:my-4
-              prose-p:leading-8
+
+              prose-p:leading-7
+
               prose-p:text-text-secondary
 
               prose-li:my-1
+
               prose-li:text-text-secondary
-              prose-li:leading-7
+
+              prose-li:leading-6
 
               prose-strong:text-text-primary
 
               prose-a:font-medium
+
               prose-a:text-sky-400
+
               prose-a:underline
+
               prose-a:decoration-sky-400/60
+
               prose-a:underline-offset-2
+
               hover:prose-a:text-sky-300
+
               hover:prose-a:decoration-sky-300
 
               prose-table:w-full
@@ -559,6 +571,7 @@ export default function ReportViewer({
                       rel="noopener noreferrer"
 
                       {...props}
+
                       className="font-medium text-sky-400 underline decoration-sky-400/60 underline-offset-2 transition-colors hover:text-sky-300 hover:decoration-sky-300"
 
                     >
@@ -613,7 +626,7 @@ export default function ReportViewer({
 
                   return (
 
-                    <h1 className="mb-5 mt-0 border-b border-border pb-3 text-2xl font-semibold tracking-tight text-text-primary">
+                    <h1 className="mb-4 mt-0 border-b border-border pb-3 text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
 
                       {children}
 
@@ -637,7 +650,7 @@ export default function ReportViewer({
 
                   return (
 
-                    <h2 className="mb-3 mt-9 text-xl font-semibold tracking-tight text-text-primary">
+                    <h2 className="mb-3 mt-7 text-lg font-semibold tracking-tight text-text-primary sm:text-xl">
 
                       {children}
 
@@ -661,7 +674,7 @@ export default function ReportViewer({
 
                   return (
 
-                    <h3 className="mb-2 mt-6 text-base font-semibold text-text-primary">
+                    <h3 className="mb-2 mt-5 text-sm font-semibold text-text-primary sm:text-base">
 
                       {children}
 
