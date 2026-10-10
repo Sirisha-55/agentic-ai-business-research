@@ -1,0 +1,24 @@
+# FastAPI backend
+fastapi
+uvicorn
+
+# Agentic AI workflow
+langgraph
+langchain
+
+# Gemini LLM
+google-genai
+
+# Data validation and configuration
+pydantic
+pydantic-settings
+
+# Web search
+tavily-python
+
+# PostgreSQL database
+sqlalchemy
+psycopg[binary]
+
+# Environment variables
+python-dotenv
