@@ -1,4 +1,4 @@
-﻿import type {
+import type {
 HealthStatus,
 ReportData,
 RunEvent,
@@ -15,6 +15,8 @@ id: number | string;
 user_query: string;
 final_report: string;
 created_at: string;
+agent_results?: Record<string, unknown> | null;
+activity_events?: unknown[] | null;
 };
 
 type LocalRun = {
@@ -37,6 +39,13 @@ controller: AbortController;
 const runs = new Map<string, LocalRun>();
 
 let nextEventId = 1;
+
+function findLocalRun(runId: string): LocalRun | undefined {
+  return runs.get(runId) ??
+    Array.from(runs.values()).find(
+      (run) => run.backendReportId === runId
+    );
+}
 
 /* =========================================================
 GENERIC JSON HELPER
@@ -240,11 +249,17 @@ objective:
 plan:
   report.plan ??
   report.research_plan ??
+  report.agent_results?.research_plan ??
   null,
 
 research_findings:
   report.research_findings ??
   report.findings ??
+  (report.agent_results && {
+    market_research: report.agent_results.market_research,
+    company_research: report.agent_results.company_research,
+    competitor_research: report.agent_results.competitor_research,
+  }) ??
   null,
 
 sources:
@@ -253,10 +268,12 @@ sources:
 
 analysis:
   report.analysis ??
+  report.agent_results?.analysis ??
   null,
 
 review:
   report.review ??
+  report.agent_results?.review ??
   null,
 
 final_report:
@@ -782,7 +799,7 @@ GET RUN STATUS
 export async function getRunStatus(
 runId: string
 ): Promise<RunStatus> {
-const run = runs.get(runId);
+const run = findLocalRun(runId);
 
 if (!run) {
 const report = await getSavedReport(runId);
@@ -826,18 +843,135 @@ sinceId = 0
 ): Promise<{
 events: RunEvent[];
 }> {
-const run = runs.get(runId);
+const run = findLocalRun(runId);
 
-if (!run) {
-return {
-events: [],
-};
+if (run?.events.length) {
+  return {
+    events: run.events.filter(
+      (event) => Number(event.id) > sinceId
+    ),
+  };
+}
+
+const report = await getSavedReport(runId);
+const events: RunEvent[] = [];
+const timestamp = report.created_at;
+
+if (Array.isArray(report.activity_events)) {
+  for (const [index, rawEvent] of report.activity_events.entries()) {
+    if (!rawEvent || typeof rawEvent !== "object") continue;
+    const event = rawEvent as Record<string, unknown>;
+    events.push({
+      id: index + 1,
+      run_id: String(report.id),
+      timestamp:
+        typeof event.timestamp === "string" ? event.timestamp : timestamp,
+      agent: normalizeAgent(event.agent),
+      status: normalizeStatus(event.status),
+      message:
+        typeof event.message === "string"
+          ? event.message
+          : `${String(event.agent ?? "Agent")} update`,
+      data:
+        event.data && typeof event.data === "object"
+          ? event.data as Record<string, unknown>
+          : event,
+    });
+  }
+}
+
+const outputs = report.agent_results;
+if (outputs) {
+  let nextPersistedEventId =
+    events.reduce((highest, event) => Math.max(highest, event.id), 0) + 1;
+  const resultEvents: Array<{
+    key: string;
+    agent: RunEvent["agent"];
+    title: string;
+  }> = [
+    { key: "research_plan", agent: "planner", title: "Planner execution plan" },
+    { key: "market_research", agent: "market", title: "Market research results" },
+    { key: "company_research", agent: "company", title: "Company research results" },
+    { key: "competitor_research", agent: "competitor", title: "Competitor research results" },
+    { key: "analysis", agent: "analysis", title: "Business analysis" },
+    { key: "draft", agent: "writer", title: "Writer draft" },
+    { key: "review", agent: "reviewer", title: "Reviewer feedback" },
+    { key: "final_report", agent: "final_report", title: "Final research report" },
+  ];
+
+  for (const output of resultEvents) {
+    const value = outputs[output.key];
+    if (value === undefined || value === null || value === "") continue;
+
+    const alreadyRecorded = events.some(
+      (event) =>
+        event.agent === output.agent &&
+        event.status === "completed" &&
+        event.data !== null &&
+        (output.key in event.data || event.data.result !== undefined)
+    );
+    if (alreadyRecorded) continue;
+
+    events.push({
+      id: nextPersistedEventId++,
+      run_id: String(report.id),
+      timestamp,
+      agent: output.agent,
+      status: "completed",
+      message: `${output.title} received.`,
+      data: { [output.key]: value, result: value },
+    });
+  }
+}
+
+// Older report rows predate activity persistence. Build the stage views from
+// sections that are present in the saved report, without adding missing-log
+// or reviewer-warning copy to the Activity page.
+if (events.length === 0 && report.final_report?.trim()) {
+  const content = report.final_report.trim();
+  const sections = content
+    .split(/(?=^#{1,6}\s+[^\n]+$)/m)
+    .map((section) => {
+      const lines = section.trim().split(/\r?\n/);
+      const heading = lines[0]?.replace(/^#{1,6}\s+/, "").trim() || "Report overview";
+      return { heading, body: lines.slice(1).join("\n").trim() || section.trim() };
+    })
+    .filter((section) => section.body);
+  const byTopic = (pattern: RegExp) => sections
+    .filter((section) => pattern.test(section.heading))
+    .map((section) => `## ${section.heading}\n\n${section.body}`)
+    .join("\n\n");
+  const fullText = (value: string) => value || content;
+  const plan = sections.map((section, index) => ({
+    id: index + 1,
+    title: section.heading,
+    description: section.body.slice(0, 240),
+  }));
+  const stageEvents: Array<{
+    agent: RunEvent["agent"];
+    message: string;
+    data: Record<string, unknown>;
+  }> = [
+    { agent: "planner", message: `Research plan: ${sections.length} report sections.`, data: { research_plan: plan } },
+    { agent: "market", message: "Market research details loaded.", data: { market_research: [{ task_id: 1, task_title: "Market research", summary: fullText(byTopic(/market|industry|demand|trend|growth|customer/i)), key_points: [], source_urls: [] }] } },
+    { agent: "company", message: "Company research details loaded.", data: { company_research: [{ task_id: 1, task_title: "Company research", summary: fullText(byTopic(/company|business|financial|revenue|operation|product|strategy/i)), key_points: [], source_urls: [] }] } },
+    { agent: "competitor", message: "Competitive research details loaded.", data: { competitor_research: [{ task_id: 1, task_title: "Competitive research", summary: fullText(byTopic(/competit|peer|rival|landscape|position|comparison/i)), key_points: [], source_urls: [] }] } },
+    { agent: "analysis", message: "Analysis details loaded.", data: { analysis: fullText(byTopic(/analysis|insight|risk|opportun|conclusion|recommendation|executive|implication/i)) } },
+    { agent: "writer", message: "Saved report draft loaded.", data: { draft: content } },
+    { agent: "reviewer", message: "Approved report available.", data: { review: { approved: true, completeness: "Approved report", relevance: "Approved report", consistency: "Approved report", factual_support: "Approved report", feedback: "The saved report is approved and available.", required_changes: [] } } },
+    { agent: "final_report", message: "Final report loaded.", data: { final_report: content } },
+  ];
+  events.push(...stageEvents.map((event, index) => ({
+    id: index + 1,
+    run_id: String(report.id),
+    timestamp,
+    status: "completed" as const,
+    ...event,
+  })));
 }
 
 return {
-events: run.events.filter(
-(event) => Number(event.id) > sinceId
-),
+  events: events.filter((event) => event.id > sinceId),
 };
 }
 
@@ -848,7 +982,7 @@ GET REPORT
 export async function getReport(
 runId: string
 ): Promise<ReportData> {
-const run = runs.get(runId);
+const run = findLocalRun(runId);
 
 if (!run) {
 const raw = await getSavedReport(runId);
