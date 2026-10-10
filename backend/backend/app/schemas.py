@@ -42,3 +42,5 @@ class ReportResponse(BaseModel):
     user_query: str
     final_report: str
     created_at: str
+    agent_results: dict | None = None
+    activity_events: list[dict] | None = None

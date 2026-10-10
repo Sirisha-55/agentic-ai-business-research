@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.config import settings
@@ -37,3 +37,31 @@ def get_db():
     finally:
         # Always close the session
         db.close()
+
+
+def ensure_report_activity_columns():
+    """Add activity storage to existing report tables without data loss."""
+    with engine.begin() as connection:
+        if engine.dialect.name == "postgresql":
+            connection.execute(text(
+                "ALTER TABLE research_reports "
+                "ADD COLUMN IF NOT EXISTS agent_results JSON"
+            ))
+            connection.execute(text(
+                "ALTER TABLE research_reports "
+                "ADD COLUMN IF NOT EXISTS activity_events JSON"
+            ))
+            return
+
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("research_reports")
+        }
+        if "agent_results" not in columns:
+            connection.execute(text(
+                "ALTER TABLE research_reports ADD COLUMN agent_results JSON"
+            ))
+        if "activity_events" not in columns:
+            connection.execute(text(
+                "ALTER TABLE research_reports ADD COLUMN activity_events JSON"
+            ))

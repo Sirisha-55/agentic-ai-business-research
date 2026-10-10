@@ -122,7 +122,9 @@ def get_report(
         "id": report.id,
         "user_query": report.user_query,
         "final_report": report.final_report,
-        "created_at": report.created_at.isoformat()
+        "created_at": report.created_at.isoformat(),
+        "agent_results": report.agent_results,
+        "activity_events": report.activity_events,
     }
 
 
@@ -213,7 +215,9 @@ def research(
 
         report = ResearchReport(
             user_query=user_query,
-            final_report=final_report
+            final_report=final_report,
+            agent_results=build_agent_results(result, final_report),
+            activity_events=[],
         )
 
         db.add(report)
@@ -306,6 +310,8 @@ def research_stream(
 
     # Used to know when the background worker finishes.
     finished = threading.Event()
+    activity_events = []
+    activity_events_lock = threading.Lock()
 
     # Stores either the final result or the error.
     worker_result = {
@@ -333,7 +339,8 @@ def research_stream(
     # =====================================================
 
     def progress_callback(event: dict):
-
+        with activity_events_lock:
+            activity_events.append(event)
         events.put(event)
 
     # =====================================================
@@ -567,7 +574,12 @@ def research_stream(
 
             report = ResearchReport(
                 user_query=user_query,
-                final_report=final_report
+                final_report=final_report,
+                agent_results=build_agent_results(
+                    worker_result["result"],
+                    final_report,
+                ),
+                activity_events=list(activity_events),
             )
 
             db.add(report)

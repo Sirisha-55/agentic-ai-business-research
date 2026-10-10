@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import router
-from app.database import Base, engine
+from app.database import Base, engine, ensure_report_activity_columns
 from app.config import settings
 from app import models
 
@@ -27,6 +27,7 @@ app = FastAPI(
 # PostgreSQL database on Render.
 
 Base.metadata.create_all(bind=engine)
+ensure_report_activity_columns()
 
 
 # ---------------------------------------------------------
