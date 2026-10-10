@@ -8,7 +8,14 @@ RunSummary,
 
 const BASE =
 process.env.NEXT_PUBLIC_API_BASE ||
-"http://127.0.0.1:8000";
+"https://agentic-ai-business-research.onrender.com";
+
+type SavedReport = {
+id: number | string;
+user_query: string;
+final_report: string;
+created_at: string;
+};
 
 type LocalRun = {
 runId: string;
@@ -722,21 +729,46 @@ LIST RUNS
 export async function listRuns(): Promise<{
 runs: RunSummary[];
 }> {
-const localRuns = Array.from(
-runs.values()
-).map(
-(run): RunSummary => ({
-run_id: run.runId,
-objective: run.objective,
-status: run.status,
-approved: run.approved,
-created_at: run.createdAt,
-updated_at: run.updatedAt,
-})
+const response = await fetch(`${BASE}/reports`, {
+cache: "no-store",
+});
+const savedReports = await json<SavedReport[]>(response);
+
+const localRuns = Array.from(runs.values()).map(
+  (run): RunSummary => ({
+    run_id: run.runId,
+    objective: run.objective,
+    status: run.status,
+    approved: run.approved,
+    created_at: run.createdAt,
+    updated_at: run.updatedAt,
+  })
 );
 
+// The backend report list is the durable source of history. Keep
+// local active runs for live progress, and avoid showing a completed
+// local run twice after its database record appears.
+const localReportIds = new Set(
+  Array.from(runs.values())
+    .map((run) => run.backendReportId)
+    .filter((id): id is string => id !== null)
+);
+
+const persistedRuns: RunSummary[] = savedReports
+  .filter((report) => !localReportIds.has(String(report.id)))
+  .map((report) => ({
+    run_id: String(report.id),
+    objective: report.user_query,
+    status: "completed",
+    approved: true,
+    created_at: report.created_at,
+    updated_at: report.created_at,
+  }));
+
 return {
-runs: localRuns,
+runs: [...localRuns, ...persistedRuns].sort(
+  (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
+),
 };
 }
 
@@ -750,7 +782,20 @@ runId: string
 const run = runs.get(runId);
 
 if (!run) {
-throw new Error("Research run not found.");
+const report = await getSavedReport(runId);
+return {
+  run_id: String(report.id),
+  objective: report.user_query,
+  status: "completed",
+  current_phase: "Research workflow completed.",
+  approved: true,
+  revision_count: 0,
+  cancelled: false,
+  error: null,
+  created_at: report.created_at,
+  updated_at: report.created_at,
+  tasks: [],
+};
 }
 
 return {
@@ -803,36 +848,52 @@ runId: string
 const run = runs.get(runId);
 
 if (!run) {
-throw new Error("Research run not found.");
+const raw = await getSavedReport(runId);
+return normalizeReport(raw, runId, raw.user_query);
+}
+
+// Streamed completion can arrive with partial report data. Only treat
+// the local report as ready when it contains the final report text.
+if (run.report?.final_report?.trim()) {
+return run.report;
+}
+
+if (run.backendReportId) {
+const raw = await getSavedReport(run.backendReportId);
+
+const savedReport = normalizeReport(
+  raw,
+  run.runId,
+  run.objective
+);
+
+run.report = {
+  ...savedReport,
+  ...run.report,
+  final_report:
+    savedReport.final_report ?? run.report?.final_report ?? null,
+  approved: savedReport.approved ?? run.report?.approved ?? true,
+};
+
+return run.report;
+
 }
 
 if (run.report) {
 return run.report;
 }
 
-if (run.backendReportId) {
-const response = await fetch(
-`${BASE}/reports/${encodeURIComponent(run.backendReportId)}`,
-{
-cache: "no-store",
-}
-);
-
-const raw = await json<unknown>(response);
-
-run.report = normalizeReport(
-  raw,
-  run.runId,
-  run.objective
-);
-
-return run.report;
-
-}
-
 throw new Error(
 "The final research report is not ready yet."
 );
+}
+
+async function getSavedReport(id: string): Promise<SavedReport> {
+  const response = await fetch(
+    `${BASE}/reports/${encodeURIComponent(id)}`,
+    { cache: "no-store" }
+  );
+  return json<SavedReport>(response);
 }
 
 /* =========================================================
