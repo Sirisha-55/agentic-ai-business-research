@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelRun,
   createRun,
+  deleteSavedReport,
   getHealth,
   getReport,
   getRunEvents,
@@ -391,6 +392,23 @@ export default function App() {
     setPage("activity");
   }
 
+  async function handleDeleteRun(id: string) {
+    await deleteSavedReport(id);
+    setRuns((current) => current.filter((run) => run.run_id !== id));
+
+    if (runId === id || report?.run_id === id) {
+      stopPolling();
+      currentRunIdRef.current = null;
+      setRunId(null);
+      setRunStatus(null);
+      setEvents([]);
+      setReport(null);
+      setError(null);
+      setSelectedAgent(null);
+      autoNavigatedRunId.current = null;
+    }
+  }
+
   // ---------------------------------------------------------
   // START NEW RESEARCH SCREEN
   // ---------------------------------------------------------
@@ -660,9 +678,11 @@ export default function App() {
               <DashboardPage
                 runs={runs}
                 onSelectRun={handleSelectRun}
+                onDeleteRun={handleDeleteRun}
                 onStartNew={() =>
                   navigate("new")
                 }
+                onViewMore={() => navigate("history")}
               />
             )}
 
@@ -685,6 +705,7 @@ export default function App() {
                 runs={runs}
                 selectedRunId={runId}
                 onSelectRun={handleSelectRun}
+                onDeleteRun={handleDeleteRun}
                 onStartNew={() =>
                   navigate("new")
                 }

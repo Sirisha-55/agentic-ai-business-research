@@ -16,10 +16,14 @@ export default function DashboardPage({
   runs,
   onSelectRun,
   onStartNew,
+  onViewMore,
+  onDeleteRun,
 }: {
   runs: RunSummary[];
   onSelectRun: (id: string) => void;
   onStartNew: () => void;
+  onViewMore: () => void;
+  onDeleteRun: (id: string) => Promise<void>;
 }) {
   const completed = runs.filter(
     (run) => run.status === "completed",
@@ -82,9 +86,14 @@ export default function DashboardPage({
 
       {/* Recent Research */}
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-text-primary">
-          Recent Business Research
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-text-primary">
+            Recent Business Research
+          </h2>
+          <Button size="sm" variant="outline" onClick={onViewMore}>
+            View more <span aria-hidden="true">→</span>
+          </Button>
+        </div>
 
         {runs.length === 0 ? (
           <EmptyState
@@ -110,6 +119,7 @@ export default function DashboardPage({
                 onClick={() =>
                   onSelectRun(run.run_id)
                 }
+                onDelete={onDeleteRun}
               />
             ))}
           </div>

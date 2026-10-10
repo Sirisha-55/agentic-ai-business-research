@@ -736,7 +736,10 @@ const savedReports = await json<SavedReport[]>(response);
 
 const localRuns = Array.from(runs.values()).map(
   (run): RunSummary => ({
-    run_id: run.runId,
+    run_id:
+      run.status === "completed" && run.backendReportId
+        ? run.backendReportId
+        : run.runId,
     objective: run.objective,
     status: run.status,
     approved: run.approved,
@@ -894,6 +897,14 @@ async function getSavedReport(id: string): Promise<SavedReport> {
     { cache: "no-store" }
   );
   return json<SavedReport>(response);
+}
+
+export async function deleteSavedReport(id: string): Promise<void> {
+  const response = await fetch(
+    `${BASE}/reports/${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+  await json<{ message: string; report_id: number }>(response);
 }
 
 /* =========================================================

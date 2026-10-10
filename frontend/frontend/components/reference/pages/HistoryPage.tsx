@@ -125,11 +125,13 @@ export default function HistoryPage({
   selectedRunId,
   onSelectRun,
   onStartNew,
+  onDeleteRun,
 }: {
   runs: RunSummary[];
   selectedRunId: string | null;
   onSelectRun: (id: string) => void;
   onStartNew: () => void;
+  onDeleteRun: (id: string) => Promise<void>;
 }) {
   /*
    * Sort newest research runs first.
@@ -215,6 +217,7 @@ export default function HistoryPage({
                             run.run_id,
                           )
                         }
+                        onDelete={onDeleteRun}
                       />
                     ),
                   )}
